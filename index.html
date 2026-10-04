@@ -340,7 +340,7 @@ const TRADES=['Terrassement','Maçonnerie / Gros œuvre','Charpente','Couverture
 const tone=s=>({'en cours':'info','à venir':'','terminé':'ok','en pause':'warn','brouillon':'','envoyé':'info','envoyée':'info','accepté':'ok','refusé':'bad','payée':'ok','en retard':'bad'}[s]||'');
 const pill=s=>`<span class="pill ${tone(s)}">${esc(s)}</span>`;
 const blank=()=>({v:1,chantiers:[],lots:[],tasks:[],docs:[],settings:{
-  name:'',legal:'',siret:'',address:'',email:'',phone:'',iban:'',tvaMode:'franchise',tva:20,
+  name:'',legal:'',siret:'',vatId:'',address:'',email:'',phone:'',iban:'',tvaMode:'franchise',tva:20,
   devisPrefix:'DEV',facturePrefix:'FAC',
   conditions:"Paiement à 30 jours. En cas de retard : pénalités à 3 fois le taux d'intérêt légal et indemnité forfaitaire de recouvrement de 40 €."}});
 const normalize=d=>{const b=blank();d.settings=Object.assign(b.settings,d.settings||{});['chantiers','lots','tasks','docs'].forEach(k=>d[k]=d[k]||[]);return d};
@@ -351,7 +351,7 @@ const ch=id=>db.chantiers.find(c=>c.id===id);
 const lot=id=>db.lots.find(l=>l.id===id);
 const doc=id=>db.docs.find(d=>d.id===id);
 
-const ht=d=>r2((d.lines||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.pu||0),0));
+const ht=d=>r2((d.lines||[]).reduce((s,l)=>s+r2((+l.qty||0)*(+l.pu||0)),0));
 const tva=d=>r2(ht(d)*(+d.tva||0)/100);
 const ttc=d=>r2(ht(d)+tva(d));
 const reste=d=>Math.max(0,r2(ttc(d)-(+d.paid||0)));
@@ -516,9 +516,10 @@ function nextButtons(d){
     if(d.status==='accepté')return `<button class="btn primary" data-a="devis2fac" data-id="${d.id}">Créer la facture</button>`+pdf;
     return b('brouillon','Rouvrir en brouillon')+pdf;
   }
-  if(d.status==='brouillon')return pdfP+b('envoyée','Marquer comme envoyée');
-  if(d.status==='envoyée')return b('payée','Marquer comme payée','primary')+pdf;
-  return pdf;
+  const fx=d.clientType==='pro'?`<button class="btn" data-a="facturx" data-id="${d.id}">Facture électronique (XML)</button>`:'';
+  if(d.status==='brouillon')return pdfP+b('envoyée','Marquer comme envoyée')+fx;
+  if(d.status==='envoyée')return b('payée','Marquer comme payée','primary')+pdf+fx;
+  return pdf+fx;
 }
 function vDocEdit(d){
   const isD=d.type==='devis',sts=isD?STAT_D:STAT_F,items=[...catalog().values()];
@@ -587,7 +588,7 @@ function vReglages(){
     <label class="f full">Régime de TVA<select data-s="tvaMode"><option value="franchise" ${s.tvaMode==='franchise'?'selected':''}>Auto-entrepreneur : TVA non applicable (art. 293 B du CGI)</option><option value="assujetti" ${s.tvaMode==='assujetti'?'selected':''}>Assujetti à la TVA</option></select></label>
    </div></div>
    <details class="more"><summary>Plus de réglages</summary><div class="card" style="margin-top:6px"><div class="fgrid">
-    ${f('legal','Forme juridique (ex. EI, SARL)')}${f('iban','IBAN (affiché sur les factures)')}
+    ${f('legal','Forme juridique (ex. EI, SARL)')}${f('iban','IBAN (affiché sur les factures)')}${f('vatId','N° de TVA intracommunautaire (si assujetti)')}
     <label class="f">Taux de TVA par défaut<select data-s="tva">${[5.5,10,20].map(x=>`<option value="${x}" ${+s.tva===x?'selected':''}>${x} %</option>`).join('')}</select></label><span></span>
     ${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}
     <label class="f full">Conditions de paiement<textarea rows="3" data-s="conditions">${esc(s.conditions)}</textarea></label></div></div></details>
@@ -684,6 +685,73 @@ function printDoc(d){
   setTimeout(()=>{window.print();document.title=old},60);
 }
 
+/* ============ Facture électronique : Factur-X / CII (profil EN 16931) ============ */
+const UNIT_CODE={'u':'C62','unité':'C62','unite':'C62','forfait':'C62','pièce':'C62','piece':'C62','m':'MTR','ml':'MTR','m²':'MTK','m2':'MTK','m³':'MTQ','m3':'MTQ','h':'HUR','heure':'HUR','j':'DAY','jour':'DAY','kg':'KGM','l':'LTR','t':'TNE'};
+const unitCode=u=>UNIT_CODE[String(u||'').trim().toLowerCase()]||'C62';
+const amt=n=>(+n).toFixed(2);
+const num4=n=>String(Math.round((+n||0)*1e4)/1e4);
+const ymd=s=>String(s||'').replace(/-/g,'');
+const splitAddr=a=>{a=String(a||'').trim();const m=a.match(/^(.*?)[,\s]+(\d{5})\s+(.+)$/);return m?{line:m[1].trim(),cp:m[2],city:m[3].trim()}:{line:a,cp:'',city:''}};
+const addrXml=a=>{const x=splitAddr(a);return `<ram:PostalTradeAddress>${x.cp?`<ram:PostcodeCode>${esc(x.cp)}</ram:PostcodeCode>`:''}${x.line?`<ram:LineOne>${esc(x.line)}</ram:LineOne>`:''}${x.city?`<ram:CityName>${esc(x.city)}</ram:CityName>`:''}<ram:CountryID>FR</ram:CountryID></ram:PostalTradeAddress>`};
+function facturxCheck(d){
+  const s=db.settings,e=[];
+  if(!s.name)e.push('Nom de votre entreprise (Réglages)');
+  if(!/^\d{14}$/.test(String(s.siret||'').replace(/\s/g,'')))e.push('SIRET à 14 chiffres (Réglages)');
+  if(!s.address)e.push('Adresse de votre entreprise (Réglages)');
+  if((+d.tva)&&!s.vatId)e.push('N° de TVA intracommunautaire (Réglages > Plus de réglages)');
+  if(!d.clientName)e.push('Nom du client');
+  if(!d.clientAddress)e.push('Adresse du client');
+  if(d.clientType==='pro'&&!/^\d{9}$/.test(d.clientSiren||''))e.push('SIREN du client (9 chiffres)');
+  if(!d.date)e.push('Date de la facture');
+  if(!d.due)e.push('Échéance de paiement');
+  if(!d.lines.some(l=>(l.desc||l.pu)&&(+l.qty)))e.push('Au moins une prestation avec quantité');
+  return e;
+}
+function facturxXml(d){
+  const s=db.settings,rate=+d.tva||0,franchise=!rate&&s.tvaMode==='franchise';
+  const cat=rate?'S':franchise?'O':'Z';
+  const ls=d.lines.filter(l=>l.desc||l.pu).map(l=>({l,tot:r2((+l.qty||0)*(+l.pu||0))}));
+  const basis=r2(ls.reduce((a,x)=>a+x.tot,0)),tax=r2(basis*rate/100),grand=r2(basis+tax);
+  const prepaid=Math.min(r2(+d.paid||0),grand),due=r2(grand-prepaid);
+  const siren=String(s.siret||'').replace(/\s/g,'').slice(0,9),siret=String(s.siret||'').replace(/\s/g,'');
+  const reason=franchise?'TVA non applicable, art. 293 B du CGI':'';
+  const nat={services:'Prestation de services',biens:'Livraison de biens',mixte:'Livraison de biens et prestation de services'}[d.nature||'services'];
+  const notes=[[`Nature de l'opération : ${nat}`],[(rate&&d.tvaDebits)?'Option pour le paiement de la TVA d\'après les débits.':''],[reason],[d.notes],[s.conditions===blank().settings.conditions?'':s.conditions],
+    ['En cas de retard de paiement, pénalités de retard exigibles à 3 fois le taux d\'intérêt légal.','PMD'],['Indemnité forfaitaire pour frais de recouvrement en cas de retard de paiement : 40 €.','PMT'],['Pas d\'escompte pour paiement anticipé.','AAB']].filter(n=>n[0]);
+  const taxRate=rate?`<ram:RateApplicablePercent>${amt(rate)}</ram:RateApplicablePercent>`:'';
+  const lineTax=`<ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>${cat}</ram:CategoryCode>${taxRate}</ram:ApplicableTradeTax>`;
+  const ship=d.deliveryAddress?`<ram:ShipToTradeParty><ram:Name>${esc(d.clientName)}</ram:Name>${addrXml(d.deliveryAddress)}</ram:ShipToTradeParty>`:'';
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+<rsm:ExchangedDocumentContext><ram:GuidelineSpecifiedDocumentContextParameter><ram:ID>urn:cen.eu:en16931:2017</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter></rsm:ExchangedDocumentContext>
+<rsm:ExchangedDocument><ram:ID>${esc(d.number)}</ram:ID><ram:TypeCode>380</ram:TypeCode><ram:IssueDateTime><udt:DateTimeString format="102">${ymd(d.date)}</udt:DateTimeString></ram:IssueDateTime>${notes.map(([n,c])=>`<ram:IncludedNote><ram:Content>${esc(n)}</ram:Content>${c?`<ram:SubjectCode>${c}</ram:SubjectCode>`:''}</ram:IncludedNote>`).join('')}</rsm:ExchangedDocument>
+<rsm:SupplyChainTradeTransaction>
+${ls.map((x,i)=>`<ram:IncludedSupplyChainTradeLineItem><ram:AssociatedDocumentLineDocument><ram:LineID>${i+1}</ram:LineID></ram:AssociatedDocumentLineDocument><ram:SpecifiedTradeProduct><ram:Name>${esc(String(x.l.desc||'Prestation').replace(/\s+/g,' ').trim())}</ram:Name></ram:SpecifiedTradeProduct><ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>${num4(x.l.pu)}</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement><ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="${unitCode(x.l.unit)}">${num4(x.l.qty)}</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery><ram:SpecifiedLineTradeSettlement>${lineTax}<ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${amt(x.tot)}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement></ram:IncludedSupplyChainTradeLineItem>`).join('\n')}
+<ram:ApplicableHeaderTradeAgreement>
+<ram:SellerTradeParty><ram:Name>${esc(s.name)}</ram:Name><ram:SpecifiedLegalOrganization><ram:ID schemeID="0002">${esc(siren)}</ram:ID></ram:SpecifiedLegalOrganization>${addrXml(s.address)}${s.email?`<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${esc(s.email)}</ram:URIID></ram:URIUniversalCommunication>`:''}${rate&&s.vatId?`<ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">${esc(String(s.vatId).replace(/\s/g,''))}</ram:ID></ram:SpecifiedTaxRegistration>`:''}</ram:SellerTradeParty>
+<ram:BuyerTradeParty><ram:Name>${esc(d.clientName)}</ram:Name>${d.clientType==='pro'&&d.clientSiren?`<ram:SpecifiedLegalOrganization><ram:ID schemeID="0002">${esc(d.clientSiren)}</ram:ID></ram:SpecifiedLegalOrganization>`:''}${addrXml(d.clientAddress)}${d.clientType==='pro'&&d.clientSiren?`<ram:URIUniversalCommunication><ram:URIID schemeID="0225">${esc(d.clientSiren)}</ram:URIID></ram:URIUniversalCommunication>`:''}</ram:BuyerTradeParty>
+</ram:ApplicableHeaderTradeAgreement>
+<ram:ApplicableHeaderTradeDelivery>${ship}<ram:ActualDeliverySupplyChainEvent><ram:OccurrenceDateTime><udt:DateTimeString format="102">${ymd(d.date)}</udt:DateTimeString></ram:OccurrenceDateTime></ram:ActualDeliverySupplyChainEvent></ram:ApplicableHeaderTradeDelivery>
+<ram:ApplicableHeaderTradeSettlement><ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>${s.iban?`<ram:SpecifiedTradeSettlementPaymentMeans><ram:TypeCode>30</ram:TypeCode><ram:PayeePartyCreditorFinancialAccount><ram:IBANID>${esc(String(s.iban).replace(/\s/g,''))}</ram:IBANID></ram:PayeePartyCreditorFinancialAccount></ram:SpecifiedTradeSettlementPaymentMeans>`:''}
+<ram:ApplicableTradeTax><ram:CalculatedAmount>${amt(tax)}</ram:CalculatedAmount><ram:TypeCode>VAT</ram:TypeCode>${reason?`<ram:ExemptionReason>${esc(reason)}</ram:ExemptionReason>`:''}<ram:BasisAmount>${amt(basis)}</ram:BasisAmount><ram:CategoryCode>${cat}</ram:CategoryCode>${rate&&d.tvaDebits?'<ram:DueDateTypeCode>5</ram:DueDateTypeCode>':''}${taxRate}</ram:ApplicableTradeTax>
+<ram:SpecifiedTradePaymentTerms><ram:DueDateDateTime><udt:DateTimeString format="102">${ymd(d.due)}</udt:DateTimeString></ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>
+<ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>${amt(basis)}</ram:LineTotalAmount><ram:TaxBasisTotalAmount>${amt(basis)}</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">${amt(tax)}</ram:TaxTotalAmount><ram:GrandTotalAmount>${amt(grand)}</ram:GrandTotalAmount>${prepaid?`<ram:TotalPrepaidAmount>${amt(prepaid)}</ram:TotalPrepaidAmount>`:''}<ram:DuePayableAmount>${amt(due)}</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+</ram:ApplicableHeaderTradeSettlement>
+</rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>
+`;
+}
+function facturxExport(d){
+  const miss=facturxCheck(d);
+  if(miss.length){
+    const dlg=$('#dlg');
+    dlg.innerHTML=`<div class="dform"><h2>Il manque quelques informations</h2><p>Pour une facture électronique, complétez :</p><ul>${miss.map(m=>`<li>${esc(m)}</li>`).join('')}</ul><div class="frow"><button type="button" class="btn primary" data-a="closeDlg">Compris</button></div></div>`;
+    dlg.showModal();return;
+  }
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([facturxXml(d)],{type:'application/xml'}));a.download=String(d.number).replace(/[^\w.-]+/g,'_')+'-factur-x.xml';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+  toast('Fichier Factur-X (XML) téléchargé');
+}
+
 /* ============ Exemple ============ */
 function demo(){
   const t=today(),c1={id:uid(),name:'Rénovation maison Dupont',client:'M. et Mme Dupont',phone:'06 12 34 56 78',address:'12 rue des Lilas, 33000 Bordeaux',status:'en cours',budget:48000,start:addDays(t,-14),end:addDays(t,50),notes:'Accès par le portail latéral.'};
@@ -714,6 +782,7 @@ const actions={
   addLine:d=>{doc(d.id).lines.push({desc:'',qty:1,unit:'u',pu:0});save();ui.flash='line';render();const ls=document.querySelectorAll('#lines .line');const i=ls[ls.length-1]&&ls[ls.length-1].querySelector('.desc');if(i)i.focus()},
   delLine:d=>{const x=doc(d.id);x.lines.splice(+d.i,1);if(!x.lines.length)x.lines.push({desc:'',qty:1,unit:'u',pu:0});save();render()},
   printDoc:d=>printDoc(doc(d.id)),
+  facturx:d=>facturxExport(doc(d.id)),
   setStatus:d=>{const x=doc(d.id);setField(x,'status',d.v);save();ui.flash='st';render()},
   devis2fac:d=>{const q=doc(d.id),t=today();const f={id:uid(),type:'facture',number:nextNumber('facture'),chantierId:q.chantierId,clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:addDays(t,30),tva:q.tva,status:'brouillon',notes:'',paid:0,devisId:q.id,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',lines:q.lines.map(l=>({...l}))};db.docs.push(f);save();toast('Facture créée à partir du devis');go('factures/'+f.id)},
   gprev:()=>{ui.goff--;render()},gnext:()=>{ui.goff++;render()},gtoday:()=>{ui.goff=0;render()},

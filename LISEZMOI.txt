@@ -1,4 +1,4 @@
-AUNE v3.3 - suivi de chantier (PC + téléphone)
+AUNE v3.4 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -9,3 +9,8 @@ Réglages > Sauvegarde de mes données > Exporter = sauvegarde / transfert.
 
 Synchronisation en ligne (v3.3) : voir worker/README.md pour mettre le Worker Cloudflare en ligne,
 puis renseigner son adresse dans index.html (const API). Tant que c'est vide, l'appli reste 100 % locale.
+
+Facture électronique (v3.4, en cours) : sur une facture destinée à un professionnel, le bouton
+"Facture électronique (XML)" produit un fichier Factur-X / CII (profil EN 16931), validé avec l'outil
+Mustang (schéma + règles européennes + règles françaises). Le PDF/A-3 « hybride » et l'envoi à une
+plateforme agréée restent à faire. Réglages > Plus de réglages : N° de TVA intracommunautaire.
