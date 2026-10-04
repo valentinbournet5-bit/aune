@@ -516,7 +516,7 @@ function nextButtons(d){
     if(d.status==='accepté')return `<button class="btn primary" data-a="devis2fac" data-id="${d.id}">Créer la facture</button>`+pdf;
     return b('brouillon','Rouvrir en brouillon')+pdf;
   }
-  const fx=d.clientType==='pro'?`<button class="btn" data-a="facturx" data-id="${d.id}">Facture électronique (XML)</button>`:'';
+  const fx=d.clientType==='pro'?`<button class="btn" data-a="facturx" data-id="${d.id}">Facture électronique (Factur-X)</button>`:'';
   if(d.status==='brouillon')return pdfP+b('envoyée','Marquer comme envoyée')+fx;
   if(d.status==='envoyée')return b('payée','Marquer comme payée','primary')+pdf+fx;
   return pdf+fx;
@@ -741,15 +741,37 @@ ${ls.map((x,i)=>`<ram:IncludedSupplyChainTradeLineItem><ram:AssociatedDocumentLi
 </rsm:CrossIndustryInvoice>
 `;
 }
-function facturxExport(d){
+const loadJs=src=>new Promise((ok,ko)=>{const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=()=>ko(new Error(src));document.head.appendChild(e)});
+function facturxModel(d){
+  const s=db.settings,c=ch(d.chantierId),franchise=s.tvaMode==='franchise'&&!(+d.tva),isD=d.type==='devis';
+  const nat={services:'Prestation de services',biens:'Livraison de biens',mixte:'Livraison de biens et prestation de services'}[d.nature||'services'];
+  const q=n=>String(+n||0).replace('.',',');
+  return {title:'FACTURE',number:d.number,date:fdate(d.date),due:d.due?fdate(d.due):'',dueLabel:'Échéance :',clientLabel:'Facturé à',
+    seller:{name:s.name,legal:s.legal,siret:s.siret,vatId:+d.tva?s.vatId:'',address:s.address,phone:s.phone,email:s.email},
+    client:{name:d.clientName,address:d.clientAddress,siren:d.clientType==='pro'?d.clientSiren:''},
+    infos:[c?`Chantier : ${c.name}${c.address?' — '+c.address:''}`:'',`Nature de l'opération : ${nat}`,d.deliveryAddress?`Adresse de livraison : ${d.deliveryAddress}`:''].filter(Boolean),
+    lines:d.lines.filter(l=>l.desc||l.pu).map(l=>({desc:l.desc||'',qty:q(l.qty),unit:l.unit||'',pu:eur(+l.pu),total:eur(r2((+l.qty||0)*(+l.pu||0)))})),
+    totals:[['Total HT',eur(ht(d))],[`TVA ${+d.tva||0} %`,eur(tva(d))],['Total TTC',eur(ttc(d)),1]].concat((+d.paid)?[['Déjà réglé',eur(+d.paid)],['Reste à payer',eur(reste(d)),1]]:[]),
+    mentions:[franchise?['TVA non applicable, art. 293 B du CGI.']:null,(+d.tva&&d.tvaDebits)?['Option pour le paiement de la TVA d\'après les débits.']:null,d.notes?[d.notes]:null,
+      s.conditions?[s.conditions,1]:null,s.iban?['Règlement par virement : IBAN '+s.iban]:null].filter(Boolean),
+    footer:(s.name?s.name+'  ·  ':'')+'Facture électronique Factur-X'};
+}
+let fxBusy=false;
+async function facturxExport(d){
   const miss=facturxCheck(d);
   if(miss.length){
     const dlg=$('#dlg');
     dlg.innerHTML=`<div class="dform"><h2>Il manque quelques informations</h2><p>Pour une facture électronique, complétez :</p><ul>${miss.map(m=>`<li>${esc(m)}</li>`).join('')}</ul><div class="frow"><button type="button" class="btn primary" data-a="closeDlg">Compris</button></div></div>`;
     dlg.showModal();return;
   }
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([facturxXml(d)],{type:'application/xml'}));a.download=String(d.number).replace(/[^\w.-]+/g,'_')+'-factur-x.xml';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
-  toast('Fichier Factur-X (XML) téléchargé');
+  if(fxBusy)return;fxBusy=true;
+  try{
+    if(!window.FXPDF){await loadJs('fx-fonts.js');await loadJs('fx-pdf.js')}
+    const pdf=await FXPDF.build(facturxModel(d),facturxXml(d));
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([pdf],{type:'application/pdf'}));a.download=String(d.number).replace(/[^\w.-]+/g,'_')+'-factur-x.pdf';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    toast('Facture électronique (Factur-X) téléchargée');
+  }catch(e){toast('Impossible de créer le fichier : réessayez avec du réseau')}
+  fxBusy=false;
 }
 
 /* ============ Exemple ============ */
