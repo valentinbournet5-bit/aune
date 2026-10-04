@@ -1,0 +1,771 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AUNE · Suivi de chantier</title>
+<meta name="theme-color" content="#f8f7f3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+/* Blanc cassé + pastels un peu flashy. Une couleur par univers :
+   chantiers = lilas · devis = ciel · factures = menthe · alertes = corail · attention = citron */
+:root{
+  color-scheme:light;
+  --bg:#f8f7f3;--card:#fff;--ink:#232733;--muted:#70758a;--line:#ebe8e0;--soft:#f2f0ea;
+  --sky:#86c9ff;--mint:#72e3b4;--lilac:#bba3ff;--coral:#ff9d8f;--lemon:#ffdf6b;
+  --sky-s:#e4f3ff;--mint-s:#dff8ee;--lilac-s:#ede7ff;--coral-s:#ffeae6;--lemon-s:#fff6d4;
+  --sky-d:#0d5a94;--mint-d:#087349;--lilac-d:#5430c4;--coral-d:#b02f24;--lemon-d:#7a5d00;
+  --shadow:0 10px 30px -16px rgba(35,39,51,.28);
+  --p:var(--ink);--pt:#fff;
+}
+body[data-sec=chantiers]{--p:var(--lilac);--pt:var(--ink)}
+body[data-sec=devis]{--p:var(--sky);--pt:var(--ink)}
+body[data-sec=factures]{--p:var(--mint);--pt:var(--ink)}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+h1{font-size:30px;line-height:1.1;margin:0;font-weight:800;letter-spacing:-.02em}
+h2{font-size:16px;margin:0;font-weight:750}
+a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.muted{color:var(--muted)}.small{font-size:14px}
+
+/* Mise en page : barre latérale (PC) / barre du bas (téléphone) */
+.shell{display:grid;grid-template-columns:244px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;padding:26px 16px 20px;display:flex;flex-direction:column;gap:22px;border-right:1px solid var(--line)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:850;letter-spacing:.1em;font-size:20px;padding:0 8px}
+.side nav{display:grid;gap:4px}
+.nv{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:16px;font-weight:650;color:var(--ink)}
+.nv .chip{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;flex:none}
+.nv:hover{background:var(--soft)}
+.nv.on{background:#fff;box-shadow:var(--shadow)}
+.nv.set{margin-top:auto;color:var(--muted)}
+.ico{width:21px;height:21px;flex:none}
+main{padding:34px clamp(18px,4vw,52px) 90px;max-width:1220px;width:100%}
+.mtop,.bottom{display:none}
+
+/* Boutons */
+.btn{border:1px solid var(--line);background:#fff;border-radius:14px;padding:10px 18px;cursor:pointer;font-weight:650;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-align:center}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--p);color:var(--pt);border-color:var(--p)}
+.btn.sky{background:var(--sky);border-color:var(--sky)}.btn.mint{background:var(--mint);border-color:var(--mint)}.btn.lilac{background:var(--lilac);border-color:var(--lilac)}
+.btn.link{border:0;background:none;text-decoration:underline;padding:10px 4px}
+.btn.danger{color:var(--coral-d)}
+.btn.sm{min-height:38px;padding:6px 14px;font-size:14px;border-radius:12px}
+.icon-btn{border:0;background:none;cursor:pointer;font-size:24px;line-height:1;padding:6px 10px;border-radius:10px;color:var(--muted)}
+.icon-btn:hover{color:var(--coral-d);background:var(--coral-s)}
+
+.head{display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:24px}
+.head .sub{color:var(--muted);margin-top:6px}
+.head .sub::first-letter{text-transform:uppercase}
+.btns{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.sec{display:flex;justify-content:space-between;align-items:center;margin:30px 0 12px}
+.sec:first-child{margin-top:0}
+.count{display:inline-block;margin-left:6px;padding:1px 9px;border-radius:99px;background:var(--soft);color:var(--muted);font-size:13px;font-weight:700}
+.back{display:inline-block;margin-bottom:14px;color:var(--muted);font-weight:650}
+.cols2{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:28px;align-items:start}
+.cols2.eq{grid-template-columns:1fr 1fr}
+.stack{display:grid;gap:14px}
+
+/* Tuiles d'action */
+.quick{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.tile{border:0;border-radius:24px;padding:18px 20px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:14px;color:var(--ink);box-shadow:var(--shadow);min-height:88px}
+.tile .plus{width:46px;height:46px;border-radius:15px;background:rgba(255,255,255,.7);display:grid;place-items:center;font-size:28px;font-weight:600;flex:none}
+.tile b{display:block;font-size:19px}
+.tile .ts{font-size:14px;opacity:.75}
+.tile.sky{background:var(--sky)}.tile.mint{background:var(--mint)}.tile.lilac{background:var(--lilac)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.kpis.three{grid-template-columns:repeat(3,1fr);margin-bottom:22px}
+.kpi{border-radius:18px;padding:14px 16px;display:block}
+.kpi span{font-size:14px;opacity:.78}
+.kpi b{display:block;font-size:23px;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.kpi.sky{background:var(--sky-s)}.kpi.mint{background:var(--mint-s)}.kpi.lilac{background:var(--lilac-s)}.kpi.coral{background:var(--coral-s)}.kpi.lemon{background:var(--lemon-s)}
+
+/* Listes */
+.list,.card{background:var(--card);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+.list{overflow:hidden}
+.card{padding:20px}
+.row{display:flex;gap:14px;align-items:center;padding:14px 18px;border-top:1px solid var(--line);min-height:68px}
+.row:first-child{border-top:0}
+a.row:hover{background:var(--bg)}
+.row .main{flex:1;min-width:0}
+.row .t{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .s,.s{color:var(--muted);font-size:14px}
+.row .amt{font-weight:750;white-space:nowrap;font-variant-numeric:tabular-nums}
+.av{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-weight:800;font-size:15px;color:var(--ink);flex:none}
+.pill{display:inline-block;padding:3px 11px;border-radius:99px;font-size:13px;font-weight:700;background:var(--soft);color:var(--muted);border:0;white-space:nowrap}
+.pill.info{background:var(--sky-s);color:var(--sky-d)}.pill.ok{background:var(--mint-s);color:var(--mint-d)}
+.pill.warn{background:var(--lemon-s);color:var(--lemon-d)}.pill.bad{background:var(--coral-s);color:var(--coral-d)}
+button.pill{cursor:pointer}
+button.pill:hover{filter:brightness(.96)}
+.bar2{height:8px;border-radius:99px;background:var(--soft);overflow:hidden;margin-top:10px}
+.bar2 i{display:block;height:100%;background:var(--mint);border-radius:99px}
+
+/* Cartes chantier */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px}
+.ccard{display:block;background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;box-shadow:var(--shadow)}
+.ccard:hover{border-color:var(--ink)}
+.ctop{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.cname{font-size:18px;font-weight:750;letter-spacing:-.01em;line-height:1.2}
+.cfoot{margin-top:8px}
+
+/* Page chantier */
+.hero{background:var(--lilac-s);border:1px solid color-mix(in srgb,var(--lilac) 55%,#fff);border-radius:26px;padding:20px 24px 22px;margin-bottom:26px}
+.hero-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.hero-top .back{margin:0}
+.hero-main{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.hero-main .av{width:58px;height:58px;border-radius:18px;font-size:20px;background:var(--lilac)}
+.hero-main>div{flex:1;min-width:200px}
+.hero .bar2{background:rgba(255,255,255,.75);height:10px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.chips a,.chips span{background:rgba(255,255,255,.8);border-radius:99px;padding:4px 12px;font-size:14px;font-weight:600}
+.stats{display:grid}
+.stats div{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.stats div:first-child{border-top:0;padding-top:0}
+.stats div:last-child{padding-bottom:0}
+.stats b{font-variant-numeric:tabular-nums;font-size:17px}
+
+.empty{background:var(--card);border:2px dashed var(--line);border-radius:20px;padding:30px 16px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:4px}
+.empty .btn{margin-top:14px}
+.notice{background:var(--lemon-s);border-radius:16px;padding:12px 18px;margin-bottom:22px;font-weight:550}
+.search{width:100%;max-width:420px;margin-bottom:18px}
+[hidden]{display:none!important}
+.warnbox{background:var(--lemon-s);color:var(--lemon-d);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:650;margin-top:14px}
+
+/* Formulaires */
+input:not([type]),input[type=text],input[type=tel],input[type=email],input[type=number],input[type=date],input[type=search],select,textarea{width:100%;min-width:0;background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:10px 14px;min-height:46px}
+input:focus,select:focus,textarea:focus{border-color:var(--ink);outline:0}
+textarea{resize:vertical}
+label.f{display:grid;gap:5px;font-size:14px;color:var(--muted);font-weight:550}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.fgrid .full{grid-column:1/-1}
+details.more>summary{cursor:pointer;font-weight:700;padding:10px 0;list-style:none;display:flex;align-items:center;gap:8px}
+details.more>summary::before{content:"+";display:grid;place-items:center;width:24px;height:24px;border-radius:8px;background:var(--lemon);font-weight:800}
+details.more[open]>summary::before{content:"–"}
+details.more>summary::-webkit-details-marker{display:none}
+dialog{border:0;border-radius:26px;background:var(--bg);color:var(--ink);padding:0;width:min(540px,calc(100vw - 20px));max-height:calc(100dvh - 20px);box-shadow:0 30px 80px -20px rgba(35,39,51,.5)}
+dialog::backdrop{background:rgba(35,39,51,.45)}
+.dform{padding:24px;display:grid;gap:18px}
+.dform h2{font-size:21px;font-weight:800}
+.frow{display:flex;justify-content:flex-end;gap:10px}
+
+/* Éditeur de devis / facture */
+.editor{display:grid;grid-template-columns:minmax(0,1fr) 340px;grid-template-areas:"info side" "lines side" "opts side";gap:18px 28px;align-items:start}
+.e-info{grid-area:info}.e-lines{grid-area:lines;container-type:inline-size}
+@container (max-width:560px){
+  .line{grid-template-columns:1fr 1fr 1fr}
+  .line .lt{grid-column:1/3;text-align:left}
+  .line .icon-btn{justify-self:end}
+}.e-side{grid-area:side;position:sticky;top:24px}.e-opts{grid-area:opts}
+.line{display:grid;grid-template-columns:80px 92px 120px minmax(0,1fr) 40px;gap:10px;align-items:end;padding:14px;border-radius:16px;background:var(--bg);margin-bottom:10px}
+.line>*{min-width:0}
+.line .desc{grid-column:1/-1;background:#fff}
+.line .lt{white-space:nowrap;text-align:right;align-self:center;font-weight:750;font-size:17px;font-variant-numeric:tabular-nums}
+.line .icon-btn{align-self:center}
+.mini{display:grid;gap:3px;font-size:12.5px;color:var(--muted);font-weight:600}
+.mini input{background:#fff}
+.row .rside{display:grid;justify-items:end;gap:4px}
+.racts{display:flex;gap:8px;align-items:center}
+.tot{display:grid;gap:8px;font-variant-numeric:tabular-nums}
+.tot div{display:flex;justify-content:space-between}
+.tot .big{font-size:28px;font-weight:800;letter-spacing:-.02em;border-top:2px solid var(--ink);padding-top:12px;margin-top:4px}
+.sumcard{background:var(--p);border-color:var(--p)}
+body:not([data-sec]) .sumcard,body[data-sec=chantiers] .sumcard{background:#fff;border-color:var(--line)}
+.sumtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-weight:700}
+.actions{display:grid;gap:10px;margin-top:20px}
+.actions .btn{width:100%}
+.sumcard .btn{background:#fff;border-color:transparent}
+.sumcard .btn.primary{background:var(--ink);color:#fff}
+.sumcard .tot .big{border-color:var(--ink)}
+
+/* Planning */
+.gantt{overflow:auto;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow)}
+.g{display:grid;grid-template-columns:160px 1fr;min-width:780px;border-top:1px solid var(--line)}
+.g:first-child{border-top:0}
+.gl{position:sticky;left:0;z-index:2;background:var(--card);padding:9px 14px;font-size:14px;border-right:1px solid var(--line);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gl.c{font-weight:750;background:var(--lilac-s)}
+.gw{display:grid;grid-template-columns:repeat(8,1fr);font-size:13px;color:var(--muted)}
+.gw span{padding:9px 8px;border-left:1px solid var(--line)}
+.gt{position:relative;min-height:38px;background:repeating-linear-gradient(to right,transparent 0,transparent calc(12.5% - 1px),var(--line) calc(12.5% - 1px),var(--line) 12.5%)}
+.gtoday{position:absolute;top:0;bottom:0;width:2px;background:var(--coral);z-index:1}
+.gb{position:absolute;top:9px;height:20px;border-radius:7px;min-width:8px}
+.gb.c{top:16px;height:6px;background:var(--ink)!important}
+.gb.done{opacity:.4}
+
+.toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:14px;z-index:50;font-weight:650}
+#print{display:none}
+
+/* Fenêtre moyenne : la barre latérale se réduit aux icônes pour laisser la place au contenu */
+@media (min-width:821px) and (max-width:1239px){
+  .shell{grid-template-columns:86px minmax(0,1fr)}
+  .side{padding:22px 0;align-items:center;gap:20px}
+  .side .lb{display:none}
+  .logo{padding:0}
+  .nv{padding:6px;justify-content:center}
+  main{padding-left:clamp(18px,3vw,40px);padding-right:clamp(18px,3vw,40px)}
+}
+@media (max-width:1000px){
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .cols2,.cols2.eq{grid-template-columns:minmax(0,1fr)}
+  .editor{grid-template-columns:minmax(0,1fr);grid-template-areas:"info" "lines" "side" "opts"}
+  .e-side{position:static}
+}
+@media (max-width:820px){
+  .shell{display:block}
+  .side{display:none}
+  .mtop{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 0}
+  .mtop .gear{display:grid;place-items:center;width:42px;height:42px;border-radius:14px;background:#fff;border:1px solid var(--line)}
+  .bottom{display:flex;position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:30;background:#fff;border:1px solid var(--line);border-radius:24px;padding:6px;box-shadow:0 14px 40px -12px rgba(35,39,51,.4)}
+  .bottom a{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px;font-size:12px;font-weight:650;color:var(--muted)}
+  .bottom .ib{padding:4px 18px;border-radius:99px;display:grid;place-items:center}
+  .bottom a.on{color:var(--ink)}
+  .bottom a.on .ib{background:var(--c)}
+  main{padding:18px 16px 120px}
+  h1{font-size:26px}
+  .quick{grid-template-columns:1fr}
+  .tile{min-height:72px}
+  .kpis.three{grid-template-columns:1fr}
+  .fgrid{grid-template-columns:1fr}
+  .line{grid-template-columns:1fr 1fr 1fr;padding:12px}
+  .line .lt{grid-column:1/3;text-align:left}
+  .line .icon-btn{justify-self:end}
+  .row{flex-wrap:wrap}
+  .racts{flex:0 0 100%;justify-content:flex-end}
+  .hero{padding:16px}
+}
+/* Animations : discrètes, et seulement si le système ne demande pas de les réduire */
+@media (prefers-reduced-motion:no-preference){
+  .tile,.ccard,.btn,.nv,.row,.pill,.icon-btn{transition:transform .14s ease,border-color .14s ease,background-color .14s ease,box-shadow .14s ease}
+  .tile:hover{transform:translateY(-2px)}
+  .ccard:hover{transform:translateY(-2px)}
+  .btn:active,.tile:active,.ccard:active,button.pill:active{transform:scale(.97)}
+  /* un seul mouvement d'ensemble quand on change de page */
+  main.enter{animation:enter .3s cubic-bezier(.2,.7,.2,1)}
+  @keyframes enter{from{opacity:0;transform:translateY(10px)}}
+  main.enter .bar2 i{transform-origin:left;animation:grow .8s .12s cubic-bezier(.2,.7,.2,1) both}
+  @keyframes grow{from{transform:scaleX(0)}}
+  /* réponses à une action */
+  dialog[open]{animation:dlg .24s cubic-bezier(.2,.8,.2,1)}
+  dialog[open]::backdrop{animation:fade .24s ease-out}
+  @keyframes dlg{from{opacity:0;transform:translateY(16px) scale(.97)}}
+  @keyframes fade{from{opacity:0}}
+  .pop{animation:pop .4s cubic-bezier(.3,1.7,.5,1)}
+  @keyframes pop{from{transform:scale(.7)}}
+  .line.pop{animation:slidein .3s cubic-bezier(.2,.8,.2,1)}
+  @keyframes slidein{from{opacity:0;transform:translateY(-8px)}}
+  .toast{animation:up .2s ease-out}
+  @keyframes up{from{opacity:0;transform:translate(-50%,10px)}}
+}
+@media print{
+  body{background:#fff}
+  .shell,.bottom,dialog,.toast{display:none!important}
+  #print{display:block!important;color:#000;background:#fff;font:12.5px/1.45 system-ui,sans-serif}
+}
+#print .pg{max-width:780px;margin:0 auto}
+#print table{width:100%;border-collapse:collapse;margin:18px 0}
+#print th{text-align:left;border-bottom:2px solid #000;padding:6px 4px;font-size:12px}
+#print td{border-bottom:1px solid #ccc;padding:7px 4px;vertical-align:top}
+#print .r{text-align:right}
+#print .hd{display:flex;justify-content:space-between;gap:24px}
+#print h1{font-size:30px}
+#print .sig{border:1px solid #000;height:90px;padding:6px;margin-top:20px;width:55%}
+#print .tt{margin-left:auto;width:260px}
+#print .tt div{display:flex;justify-content:space-between;padding:3px 0}
+#print .tt .g2{border-top:2px solid #000;font-weight:700;font-size:15px;margin-top:4px;padding-top:6px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="side"></aside>
+  <div>
+    <div class="mtop" id="mtop"></div>
+    <main id="main"></main>
+  </div>
+</div>
+<nav class="bottom" id="bottom"></nav>
+<dialog id="dlg"></dialog>
+<div id="print"></div>
+<input type="file" id="file" accept="application/json,.json" hidden>
+
+<script>
+'use strict';
+/* ============ Utilitaires ============ */
+const $=(s,el=document)=>el.querySelector(s);
+const uid=()=>Math.random().toString(36).slice(2,10);
+const LS='aune.v1', DAY=864e5;
+const pad=n=>String(n).padStart(2,'0');
+const D=s=>Date.parse(s+'T00:00:00Z');
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+const addDays=(s,n)=>new Date(D(s)+n*DAY).toISOString().slice(0,10);
+const weekStart=s=>addDays(s,-((new Date(D(s)).getUTCDay()+6)%7));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur=n=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(n||0);
+const fdate=s=>s?new Date(D(s)).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}):'—';
+const fshort=s=>s?new Date(D(s)).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',timeZone:'UTC'}):'';
+const r2=n=>Math.round((n+Number.EPSILON)*100)/100;
+const hue=s=>{let h=0;for(const c of String(s||'x'))h=(h*31+c.charCodeAt(0))%360;return h};
+const colorOf=s=>`hsl(${hue(s)} 85% 76%)`;
+const PAL=['sky','mint','lilac','coral','lemon'];
+const palOf=s=>PAL[hue(s)%5];
+const initials=s=>{
+  const skip=/^(m|mr|mme|mlle|me|et|de|du|des|la|le|les|d|l)\.?$/i;
+  let w=String(s||'').split(/[\s/·\-]+/).filter(x=>/^[A-Za-zÀ-ÿ0-9]/.test(x)&&!skip.test(x));
+  if(!w.length)w=String(s||'?').split(/\s+/).filter(Boolean);
+  const r=w.length>1?w[0][0]+w[1][0]:(w[0]||'?').slice(0,2);
+  return r.toUpperCase();
+};
+const av=(label,key)=>`<span class="av" style="background:var(--${palOf(key||label)})">${esc(initials(label))}</span>`;
+const I={
+ home:'<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
+ site:'<path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/>',
+ doc:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+ inv:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+ cog:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
+};
+const ico=n=>`<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
+const MARK='<svg viewBox="0 0 64 64" width="32" height="32" aria-hidden="true"><rect width="64" height="64" rx="17" fill="#bba3ff"/><path d="M16 46 L32 16 L48 46" fill="none" stroke="#232733" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 53h28" stroke="#fff" stroke-width="4" stroke-dasharray="2 5"/></svg>';
+
+/* ============ Données ============ */
+const STAT_L=['à venir','en cours','terminé'];
+const STAT_C=['à venir','en cours','en pause','terminé'];
+const STAT_D=['brouillon','envoyé','accepté','refusé'];
+const STAT_F=['brouillon','envoyée','payée'];
+const TRADES=['Terrassement','Maçonnerie / Gros œuvre','Charpente','Couverture','Menuiserie','Plomberie','Électricité','Chauffage / Clim','Plâtrerie / Isolation','Carrelage','Peinture','Façade','Paysage / VRD','Autre'];
+const tone=s=>({'en cours':'info','à venir':'','terminé':'ok','en pause':'warn','brouillon':'','envoyé':'info','envoyée':'info','accepté':'ok','refusé':'bad','payée':'ok','en retard':'bad'}[s]||'');
+const pill=s=>`<span class="pill ${tone(s)}">${esc(s)}</span>`;
+const blank=()=>({v:1,chantiers:[],lots:[],tasks:[],docs:[],settings:{
+  name:'',legal:'',siret:'',address:'',email:'',phone:'',iban:'',tvaMode:'franchise',tva:20,
+  devisPrefix:'DEV',facturePrefix:'FAC',
+  conditions:"Paiement à 30 jours. En cas de retard : pénalités à 3 fois le taux d'intérêt légal et indemnité forfaitaire de recouvrement de 40 €."}});
+const normalize=d=>{const b=blank();d.settings=Object.assign(b.settings,d.settings||{});['chantiers','lots','tasks','docs'].forEach(k=>d[k]=d[k]||[]);return d};
+function load(){try{const d=JSON.parse(localStorage.getItem(LS));if(d&&d.v)return normalize(d)}catch(e){}return blank()}
+let db=load();
+function save(){try{localStorage.setItem(LS,JSON.stringify(db))}catch(e){toast('Enregistrement impossible : stockage plein ou bloqué')}}
+const ch=id=>db.chantiers.find(c=>c.id===id);
+const lot=id=>db.lots.find(l=>l.id===id);
+const doc=id=>db.docs.find(d=>d.id===id);
+
+const ht=d=>r2((d.lines||[]).reduce((s,l)=>s+(+l.qty||0)*(+l.pu||0),0));
+const tva=d=>r2(ht(d)*(+d.tva||0)/100);
+const ttc=d=>r2(ht(d)+tva(d));
+const reste=d=>Math.max(0,r2(ttc(d)-(+d.paid||0)));
+const isLate=d=>d.type==='facture'&&d.status==='envoyée'&&d.due&&d.due<today()&&reste(d)>0;
+const dStatus=d=>isLate(d)?'en retard':d.status;
+const lotsOf=c=>db.lots.filter(l=>l.chantierId===c.id);
+const lotsDone=c=>lotsOf(c).filter(l=>l.status==='terminé').length;
+const progOf=c=>{const n=lotsOf(c).length;return n?Math.round(lotsDone(c)/n*100):(c.status==='terminé'?100:0)};
+function nextNumber(type){
+  const pre=type==='devis'?db.settings.devisPrefix:db.settings.facturePrefix, y=new Date().getFullYear();
+  let max=0;db.docs.filter(d=>d.type===type).forEach(d=>{const m=String(d.number||'').match(/-(\d{4})-(\d+)$/);if(m&&+m[1]===y)max=Math.max(max,+m[2])});
+  return `${pre}-${y}-${String(max+1).padStart(3,'0')}`;
+}
+const clientNames=()=>[...new Set([...db.chantiers.map(c=>c.client),...db.docs.map(d=>d.clientName)].filter(Boolean))];
+const catalog=()=>{const m=new Map();db.docs.forEach(d=>d.lines.forEach(l=>{if(l.desc&&+l.pu)m.set(l.desc.trim().toLowerCase(),l)}));return m};
+
+/* ============ UI ============ */
+const ui={q:'',goff:0,gc:'',opt:false,flash:null};
+function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);setTimeout(()=>t.remove(),2400)}
+function fld(f,v){
+  const req=f.req?'required':'';let inp;
+  if(f.t==='select')inp=`<select name="${f.k}" ${req}>${f.o.map(o=>{const[a,b]=Array.isArray(o)?o:[o,o];return`<option value="${esc(a)}" ${String(a)===String(v)?'selected':''}>${esc(b)}</option>`}).join('')}</select>`;
+  else if(f.t==='textarea')inp=`<textarea name="${f.k}" rows="3">${esc(v)}</textarea>`;
+  else inp=`<input name="${f.k}" type="${f.t||'text'}" ${f.t==='number'?'step="any" inputmode="decimal"':''} ${f.t==='tel'?'inputmode="tel"':''} ${f.list?`list="dl_${f.k}"`:''} value="${esc(v==null?'':v)}" ${req} ${f.auto?'autofocus':''}>${f.list?`<datalist id="dl_${f.k}">${f.list.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>`:''}`;
+  return `<label class="f ${f.full?'full':''}"><span>${f.l}</span>${inp}</label>`;
+}
+function form(title,fields,vals,onSave,openMore){
+  const main=fields.filter(f=>!f.more), more=fields.filter(f=>f.more);
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<form class="dform"><h2>${esc(title)}</h2><div class="fgrid">${main.map(f=>fld(f,vals[f.k])).join('')}</div>${more.length?`<details class="more" ${openMore?'open':''}><summary>Plus de détails</summary><div class="fgrid" style="margin-top:6px">${more.map(f=>fld(f,vals[f.k])).join('')}</div></details>`:''}<div class="frow"><button type="button" class="btn" data-a="closeDlg">Annuler</button><button class="btn primary">Enregistrer</button></div></form>`;
+  $('form',dlg).addEventListener('submit',e=>{
+    e.preventDefault();const fd=new FormData(e.target),v={};
+    fields.forEach(f=>{const raw=fd.get(f.k);v[f.k]=f.t==='number'?(parseFloat(raw)||0):(raw==null?'':String(raw).trim())});
+    onSave(v);dlg.close();render();
+  });
+  dlg.showModal();
+}
+
+/* ============ Vues ============ */
+const head=(title,sub,btns)=>`<div class="head"><div><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}</div><div class="btns">${btns||''}</div></div>`;
+const empty=(t,p,b)=>`<div class="empty"><b>${t}</b>${p}${b?`<div>${b}</div>`:''}</div>`;
+const kpi=(c,l,v,href)=>`<${href?'a href="'+href+'"':'div'} class="kpi ${c}"><span>${l}</span><b>${v}</b></${href?'a':'div'}>`;
+
+function docRow(d,msg,inChantier){
+  const c=inChantier?null:ch(d.chantierId);
+  return `<a class="row" href="#/${d.type==='devis'?'devis':'factures'}/${d.id}">${av(d.clientName||'?',d.clientName||d.id)}<div class="main"><div class="t">${esc(d.clientName||'Client à renseigner')}</div><div class="s">${esc(msg||((d.type==='devis'?'Devis ':'Facture ')+d.number+(c?' · '+c.name:'')+' · '+fdate(d.date)))}</div></div><div class="rside"><div class="amt">${eur(ttc(d))}</div>${msg?'':pill(dStatus(d))}</div></a>`;
+}
+function chantierRow(c){
+  const n=lotsOf(c).length,done=lotsDone(c);
+  return `<a class="row" href="#/chantier/${c.id}" style="display:block"><div style="display:flex;gap:14px;align-items:center">${av(c.name,c.id)}<div class="main"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.client||'Client non renseigné')}${n?' · '+done+'/'+n+' terminés':''}</div></div>${pill(c.status)}</div>${n?`<div class="bar2"><i style="width:${progOf(c)}%"></i></div>`:''}</a>`;
+}
+function chantierCard(c){
+  const n=lotsOf(c).length,done=lotsDone(c);
+  return `<a class="ccard" href="#/chantier/${c.id}"><div class="ctop">${av(c.name,c.id)}${pill(c.status)}</div><div class="cname">${esc(c.name)}</div><div class="s">${esc(c.client||'Client non renseigné')}</div><div class="bar2"><i style="width:${progOf(c)}%"></i></div><div class="s cfoot">${n?`${done}/${n} corps de métier terminés`:'Aucun corps de métier'}${c.end?` · fin ${fshort(c.end)}`:''}</div></a>`;
+}
+
+function vAccueil(){
+  const t=today(),s=db.settings;
+  const quick=`<div class="quick">
+    <button class="tile sky" data-a="newDoc" data-type="devis"><span class="plus">+</span><span><b>Devis</b><span class="ts">Préparer un devis</span></span></button>
+    <button class="tile mint" data-a="newDoc" data-type="facture"><span class="plus">+</span><span><b>Facture</b><span class="ts">Facturer un client</span></span></button>
+    <button class="tile lilac" data-a="newChantier"><span class="plus">+</span><span><b>Chantier</b><span class="ts">Suivre un nouveau chantier</span></span></button></div>`;
+  const dateTxt=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  if(!db.chantiers.length&&!db.docs.length){
+    return head('Bonjour',dateTxt)+quick+
+      `<div class="empty"><b>Rien pour l'instant</b>Commencez par un devis : il se transforme ensuite en facture en un clic.<div><button class="btn link" data-a="demo">Voir avec un exemple</button></div></div>`;
+  }
+  const todo=[];
+  db.docs.filter(isLate).forEach(d=>todo.push({d,w:0,msg:'En retard · échue le '+fdate(d.due)}));
+  db.docs.filter(d=>d.type==='devis'&&d.status==='accepté'&&!db.docs.some(f=>f.devisId===d.id)).forEach(d=>todo.push({d,w:1,msg:'Devis accepté · créer la facture'}));
+  db.docs.filter(d=>d.type==='devis'&&d.status==='envoyé'&&d.date<=addDays(t,-7)).forEach(d=>todo.push({d,w:2,msg:'Sans réponse depuis '+Math.round((D(t)-D(d.date))/DAY)+' jours'}));
+  db.docs.filter(d=>d.status==='brouillon').forEach(d=>todo.push({d,w:3,msg:(d.type==='devis'?'Devis':'Facture')+' brouillon à terminer'}));
+  todo.sort((a,b)=>a.w-b.w);
+  const actifs=db.chantiers.filter(c=>c.status==='en cours');
+  const aEnc=db.docs.filter(d=>d.type==='facture'&&d.status==='envoyée').reduce((x,d)=>x+reste(d),0);
+  const late=db.docs.filter(isLate).reduce((x,d)=>x+reste(d),0);
+  const att=db.docs.filter(d=>d.type==='devis'&&d.status==='envoyé').reduce((x,d)=>x+ttc(d),0);
+  return head('Bonjour',dateTxt)+quick+
+  `<div class="kpis">${kpi('mint','À encaisser',eur(aEnc),'#/factures')}${kpi('coral','En retard',eur(late),'#/factures')}${kpi('sky','Devis en attente',eur(att),'#/devis')}${kpi('lilac','Chantiers en cours',actifs.length,'#/chantiers')}</div>`+
+  (!s.name?`<div class="notice">Ajoutez le nom de votre entreprise pour qu'il figure sur vos devis. <a href="#/reglages"><u>Ouvrir les réglages</u></a></div>`:'')+
+  `<div class="cols2"><div><div class="sec"><h2>À traiter</h2></div>`+
+  (todo.length?`<div class="list">${todo.slice(0,6).map(x=>docRow(x.d,x.msg)).join('')}</div>`:`<div class="empty">Tout est à jour.</div>`)+
+  `</div><div><div class="sec"><h2>Chantiers en cours</h2><a href="#/chantiers"><u>Tous</u></a></div>`+
+  (actifs.length?`<div class="list">${actifs.map(chantierRow).join('')}</div>`:`<div class="empty">Aucun chantier en cours.</div>`)+`</div></div>`;
+}
+
+function listChantiers(){
+  const q=ui.q.toLowerCase();
+  const l=db.chantiers.filter(c=>!q||(c.name+' '+c.client+' '+c.address).toLowerCase().includes(q));
+  if(!l.length)return empty(q?'Aucun résultat':'Aucun chantier','Un chantier regroupe vos corps de métier, devis et factures.',q?'':`<button class="btn primary" data-a="newChantier">+ Chantier</button>`);
+  return [['en cours','En cours'],['à venir','À venir'],['en pause','En pause'],['terminé','Terminés']].map(([k,t])=>{
+    const g=l.filter(c=>c.status===k);return g.length?`<div class="sec"><h2>${t}<span class="count">${g.length}</span></h2></div><div class="cards">${g.map(chantierCard).join('')}</div>`:''}).join('');
+}
+function vChantiers(){
+  return head('Chantiers','',`<a class="btn" href="#/planning">Planning</a><button class="btn primary" data-a="newChantier">+ Chantier</button>`)+
+  (db.chantiers.length>4?`<input class="search" type="search" placeholder="Rechercher un chantier ou un client" data-q="chantiers" value="${esc(ui.q)}">`:'')+
+  `<div id="list">${listChantiers()}</div>`;
+}
+
+function vChantier(r){
+  const c=ch(r.id);
+  if(!c)return empty('Chantier introuvable','Il a peut-être été supprimé.','<a class="btn" href="#/chantiers">Retour</a>');
+  const ls=lotsOf(c),n=ls.length,docs=db.docs.filter(d=>d.chantierId===c.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const accepted=docs.filter(d=>d.type==='devis'&&d.status==='accepté').reduce((s,d)=>s+ttc(d),0);
+  const billed=docs.filter(d=>d.type==='facture'&&d.status!=='brouillon').reduce((s,d)=>s+ttc(d),0);
+  const due=docs.filter(d=>d.type==='facture'&&d.status==='envoyée').reduce((s,d)=>s+reste(d),0);
+  const chips=[c.phone?`<a href="tel:${esc(c.phone.replace(/\s/g,''))}">${esc(c.phone)}</a>`:'',c.start||c.end?`<span>${fdate(c.start)} → ${fdate(c.end)}</span>`:'',c.budget?`<span>Budget ${eur(c.budget)} HT</span>`:''].filter(Boolean).join('');
+  return `<div class="hero"><div class="hero-top"><a class="back" href="#/chantiers">← Chantiers</a><button class="btn sm" data-a="editChantier" data-id="${c.id}">Modifier</button></div>
+    <div class="hero-main">${av(c.name,'hero')}<div><h1>${esc(c.name)}</h1><div class="s" style="margin-top:4px">${esc([c.client,c.address].filter(Boolean).join(' · '))}</div></div>${pill(c.status)}</div>
+    <div class="bar2"><i style="width:${progOf(c)}%"></i></div>
+    <div class="s" style="margin-top:6px">${n?`${lotsDone(c)} corps de métier terminé${lotsDone(c)>1?'s':''} sur ${n}`:'Aucun corps de métier pour le moment'}</div>
+    ${chips?`<div class="chips">${chips}</div>`:''}</div>
+  <div class="cols2">
+   <div><div class="sec"><h2>Corps de métier</h2><button class="btn sm lilac" data-a="newLot" data-id="${c.id}">+ Ajouter</button></div>`+
+  (n?`<div class="list">${ls.map(l=>`<div class="row">${av(l.trade,l.trade)}<div class="main"><div class="t">${esc(l.trade)}</div><div class="s">${esc(l.company||'Entreprise non renseignée')}${l.start||l.end?' · '+fshort(l.start)+(l.end?' → '+fshort(l.end):''):''}</div></div><div class="racts">${l.phone?`<a class="btn sm" href="tel:${esc(l.phone.replace(/\s/g,''))}" aria-label="Appeler ${esc(l.company||l.trade)}">Appeler</a>`:''}<button class="pill ${tone(l.status)}" data-a="cycleLot" data-id="${l.id}" title="Toucher pour changer l'état">${l.status}</button><button class="btn sm" data-a="editLot" data-id="${l.id}" aria-label="Modifier">⋯</button></div></div>`).join('')}</div>`
+   :empty('Aucun corps de métier','Ajoutez les artisans qui interviennent.',`<button class="btn primary" data-a="newLot" data-id="${c.id}">+ Corps de métier</button>`))+
+  (c.notes?`<div class="sec"><h2>Notes</h2></div><div class="card" style="white-space:pre-wrap">${esc(c.notes)}</div>`:'')+
+  `</div><div>
+   <div class="sec"><h2>Argent</h2></div><div class="card"><div class="stats"><div><span>Devis acceptés</span><b>${eur(accepted)}</b></div><div><span>Facturé</span><b>${eur(billed)}</b></div><div><span>Reste à encaisser</span><b>${eur(due)}</b></div></div></div>
+   <div class="sec"><h2>Devis et factures</h2><span class="btns"><button class="btn sm sky" data-a="newDoc" data-type="devis" data-id="${c.id}">+ Devis</button><button class="btn sm mint" data-a="newDoc" data-type="facture" data-id="${c.id}">+ Facture</button></span></div>`+
+  (docs.length?`<div class="list">${docs.map(d=>docRow(d,null,true)).join('')}</div>`:`<div class="empty">Aucun document pour ce chantier.</div>`)+
+  `</div></div>`;
+}
+
+function listDocs(type){
+  const q=ui.q.toLowerCase();
+  const l=db.docs.filter(d=>d.type===type&&(!q||((d.clientName||'')+' '+d.number+' '+((ch(d.chantierId)||{}).name||'')).toLowerCase().includes(q))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||b.number.localeCompare(a.number));
+  return l.length?`<div class="list">${l.map(d=>docRow(d)).join('')}</div>`:empty(q?'Aucun résultat':(type==='devis'?'Aucun devis':'Aucune facture'),type==='devis'?'Créez un devis, envoyez-le en PDF, puis transformez-le en facture.':'Créez une facture, ou transformez un devis accepté.',q?'':`<button class="btn primary" data-a="newDoc" data-type="${type}">+ ${type==='devis'?'Devis':'Facture'}</button>`);
+}
+function vDocs(type,r){
+  if(r.id){const d=doc(r.id);if(d)return vDocEdit(d)}
+  const all=db.docs.filter(d=>d.type===type),sum=f=>eur(all.filter(f).reduce((s,d)=>s+(type==='facture'?reste(d):ttc(d)),0));
+  const k=type==='devis'
+    ?kpi('sky','En attente de réponse',sum(d=>d.status==='envoyé'))+kpi('mint','Acceptés',sum(d=>d.status==='accepté'))+kpi('lemon','Brouillons',all.filter(d=>d.status==='brouillon').length)
+    :kpi('mint','À encaisser',sum(d=>d.status==='envoyée'))+kpi('coral','En retard',sum(isLate))+kpi('lemon','Brouillons',all.filter(d=>d.status==='brouillon').length);
+  return head(type==='devis'?'Devis':'Factures','',`<button class="btn primary" data-a="newDoc" data-type="${type}">+ ${type==='devis'?'Devis':'Facture'}</button>`)+
+  (all.length?`<div class="kpis three">${k}</div>`:'')+
+  (all.length>4?`<input class="search" type="search" placeholder="Rechercher un client ou un numéro" data-q="${type}" value="${esc(ui.q)}">`:'')+
+  `<div id="list">${listDocs(type)}</div>`;
+}
+
+const lineRow=(d,l,i)=>`<div class="line"><input class="desc" list="dl_desc" data-l="desc" data-i="${i}" data-id="${d.id}" placeholder="Prestation (ex. Pose de carrelage)" value="${esc(l.desc)}" aria-label="Prestation">
+<label class="mini">Qté<input data-l="qty" data-i="${i}" data-id="${d.id}" type="number" step="any" inputmode="decimal" placeholder="1" value="${l.qty}"></label>
+<label class="mini">Unité<input data-l="unit" data-i="${i}" data-id="${d.id}" placeholder="m², u…" value="${esc(l.unit)}"></label>
+<label class="mini">Prix HT<input data-l="pu" data-i="${i}" data-id="${d.id}" type="number" step="any" inputmode="decimal" placeholder="0" value="${l.pu||''}"></label>
+<span class="lt" id="lt_${i}">${eur((+l.qty||0)*(+l.pu||0))}</span><button class="icon-btn" data-a="delLine" data-id="${d.id}" data-i="${i}" aria-label="Supprimer la ligne">×</button></div>`;
+function totalsHtml(d){
+  return `<div><span>Total HT</span><span>${eur(ht(d))}</span></div>`+((+d.tva)?`<div><span>TVA ${+d.tva} %</span><span>${eur(tva(d))}</span></div>`:'<div class="muted small"><span>TVA non applicable</span><span></span></div>')+
+  `<div class="big"><span>${(+d.tva)?'Total TTC':'Total'}</span><span>${eur(ttc(d))}</span></div>`+
+  (d.type==='facture'&&(+d.paid)?`<div><span>Déjà réglé</span><span>− ${eur(+d.paid)}</span></div><div><b>Reste à payer</b><b>${eur(reste(d))}</b></div>`:'');
+}
+const needSiren=d=>d.type==='facture'&&d.clientType==='pro'&&!/^\d{9}$/.test(d.clientSiren||'');
+const warnHtml=d=>needSiren(d)?`<div class="warnbox">SIREN du client à renseigner : obligatoire sur les factures destinées à un professionnel.</div>`:'';
+const syncPro=d=>{const f=$('#sirenField');if(f)f.hidden=d.clientType!=='pro'};
+function nextButtons(d){
+  const b=(v,l,cls)=>`<button class="btn ${cls||''}" data-a="setStatus" data-id="${d.id}" data-v="${v}">${l}</button>`;
+  const pdf=`<button class="btn" data-a="printDoc" data-id="${d.id}">Télécharger le PDF</button>`;
+  const pdfP=`<button class="btn primary" data-a="printDoc" data-id="${d.id}">Télécharger le PDF</button>`;
+  if(d.type==='devis'){
+    if(d.status==='brouillon')return pdfP+b('envoyé','Marquer comme envoyé');
+    if(d.status==='envoyé')return b('accepté','Devis accepté','primary')+b('refusé','Refusé')+pdf;
+    if(d.status==='accepté')return `<button class="btn primary" data-a="devis2fac" data-id="${d.id}">Créer la facture</button>`+pdf;
+    return b('brouillon','Rouvrir en brouillon')+pdf;
+  }
+  if(d.status==='brouillon')return pdfP+b('envoyée','Marquer comme envoyée');
+  if(d.status==='envoyée')return b('payée','Marquer comme payée','primary')+pdf;
+  return pdf;
+}
+function vDocEdit(d){
+  const isD=d.type==='devis',sts=isD?STAT_D:STAT_F,items=[...catalog().values()];
+  return `<a class="back" href="#/${isD?'devis':'factures'}">← ${isD?'Devis':'Factures'}</a>`+
+  head((isD?'Devis ':'Facture ')+esc(d.number),'')+
+  `<datalist id="dl_cl">${clientNames().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+  <datalist id="dl_desc">${items.map(l=>`<option value="${esc(l.desc)}">`).join('')}</datalist>
+  <div class="editor">
+   <section class="card e-info"><div class="fgrid">
+    <label class="f">Client<input type="text" list="dl_cl" data-b="clientName" data-id="${d.id}" value="${esc(d.clientName)}" placeholder="Nom du client" ${d.clientName?'':'autofocus'}></label>
+    <label class="f">Chantier<select data-b="chantierId" data-id="${d.id}"><option value="">— Aucun —</option>${db.chantiers.map(c=>`<option value="${c.id}" ${c.id===d.chantierId?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+    <label class="f">Type de client<select data-b="clientType" data-id="${d.id}"><option value="particulier" ${d.clientType!=='pro'?'selected':''}>Particulier</option><option value="pro" ${d.clientType==='pro'?'selected':''}>Professionnel (entreprise)</option></select></label>
+    <label class="f" id="sirenField" ${d.clientType==='pro'?'':'hidden'}>SIREN du client<input type="text" inputmode="numeric" maxlength="9" data-b="clientSiren" data-id="${d.id}" value="${esc(d.clientSiren)}" placeholder="9 chiffres"></label>
+    <p class="s full" style="margin:0">Particulier : pas de facture électronique, seules les données de vente sont transmises. Professionnel : facture électronique obligatoire à partir du 1er septembre 2027.</p>
+   </div></section>
+   <section class="card e-lines"><h2 style="margin-bottom:14px">Prestations</h2>
+    <div id="lines">${d.lines.map((l,i)=>lineRow(d,l,i)).join('')}</div>
+    <button class="btn sm" data-a="addLine" data-id="${d.id}">+ Ajouter une ligne</button></section>
+   <aside class="e-side"><div class="card sumcard"><div class="sumtop"><span>${isD?'Devis':'Facture'} ${esc(d.number)}</span>${pill(dStatus(d))}</div>
+    <div class="tot" id="tot">${totalsHtml(d)}</div><div id="warn">${warnHtml(d)}</div><div class="actions">${nextButtons(d)}</div></div></aside>
+   <section class="e-opts"><details class="more" ${ui.opt?'open':''}><summary>Options : dates, TVA, acompte, notes</summary>
+    <div class="card" style="margin-top:6px"><div class="fgrid">
+    <label class="f">Date<input type="date" data-b="date" data-id="${d.id}" value="${esc(d.date)}"></label>
+    <label class="f">${isD?'Valable jusqu\'au':'Échéance de paiement'}<input type="date" data-b="due" data-id="${d.id}" value="${esc(d.due)}"></label>
+    <label class="f">TVA<select data-b="tva" data-id="${d.id}">${[0,5.5,10,20].map(x=>`<option value="${x}" ${+d.tva===x?'selected':''}>${x===0?'Sans TVA':x+' %'}</option>`).join('')}</select></label>
+    ${isD?`<label class="f">Statut<select data-b="status" data-id="${d.id}">${sts.map(s=>`<option ${s===d.status?'selected':''}>${s}</option>`).join('')}</select></label>`:
+    `<label class="f">Déjà réglé (acompte)<input type="number" step="any" inputmode="decimal" data-b="paid" data-id="${d.id}" value="${+d.paid||''}"></label>`}
+    <label class="f full">Adresse du client<input type="text" data-b="clientAddress" data-id="${d.id}" value="${esc(d.clientAddress)}"></label>
+    <label class="f">Nature de l'opération<select data-b="nature" data-id="${d.id}">${[['services','Prestation de services'],['biens','Livraison de biens'],['mixte','Biens et services']].map(([v,l])=>`<option value="${v}" ${(d.nature||'services')===v?'selected':''}>${l}</option>`).join('')}</select></label>
+    <label class="f" id="debitsField" ${(+d.tva)?'':'hidden'}>TVA sur les débits<select data-b="tvaDebits" data-id="${d.id}"><option value="0" ${d.tvaDebits?'':'selected'}>Non</option><option value="1" ${d.tvaDebits?'selected':''}>Oui, option choisie</option></select></label>
+    <label class="f full">Adresse de livraison ou du chantier (si différente de celle du client)<input type="text" data-b="deliveryAddress" data-id="${d.id}" value="${esc(d.deliveryAddress)}"></label>
+    <label class="f full">Notes affichées sur le document<textarea rows="2" data-b="notes" data-id="${d.id}">${esc(d.notes)}</textarea></label>
+    </div><div style="margin-top:16px"><button class="btn danger sm" data-a="delDoc" data-id="${d.id}">Supprimer ce document</button></div></div></details></section>
+  </div>`;
+}
+
+function vPlanning(){
+  const ws=addDays(weekStart(today()),-7+ui.goff*28),days=56;
+  const weeks=[...Array(8)].map((_,i)=>addDays(ws,i*7));
+  const tl=((D(today())-D(ws))/DAY+.5)/days*100;
+  const track=inner=>`<div class="gt">${tl>=0&&tl<=100?`<i class="gtoday" style="left:${tl}%"></i>`:''}${inner}</div>`;
+  const bar=(s,e,color,cls,title)=>{
+    s=s||e;e=e||s;if(!s)return'';let l=(D(s)-D(ws))/DAY,w=(D(e)-D(s))/DAY+1;
+    if(l+w<=0||l>=days)return'';if(l<0){w+=l;l=0}if(l+w>days)w=days-l;
+    return `<div class="gb ${cls}" title="${esc(title)}" style="left:${l/days*100}%;width:${w/days*100}%;background:${color}"></div>`;
+  };
+  let rows='';
+  db.chantiers.filter(c=>c.status!=='terminé'&&(!ui.gc||c.id===ui.gc)).forEach(c=>{
+    const ls=lotsOf(c);if(!ls.length&&!c.start&&!c.end)return;
+    rows+=`<div class="g"><div class="gl c"><a href="#/chantier/${c.id}">${esc(c.name)}</a></div>${track(bar(c.start,c.end,'var(--ink)','c',c.name))}</div>`;
+    ls.forEach(l=>{rows+=`<div class="g"><div class="gl">${esc(l.trade)}</div>${track(bar(l.start,l.end,colorOf(l.trade),l.status==='terminé'?'done':'',l.trade+' · '+(l.company||'')))}</div>`});
+  });
+  return `<a class="back" href="#/chantiers">← Chantiers</a>`+head('Planning',`${fdate(ws)} → ${fdate(addDays(ws,days-1))}`,
+    `<select id="gsel" aria-label="Filtrer par chantier" style="width:auto"><option value="">Tous les chantiers</option>${db.chantiers.map(c=>`<option value="${c.id}" ${ui.gc===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
+     <button class="btn" data-a="gprev" aria-label="Période précédente">←</button><button class="btn" data-a="gtoday">Aujourd'hui</button><button class="btn" data-a="gnext" aria-label="Période suivante">→</button>`)+
+  (rows?`<div class="gantt"><div class="g"><div class="gl"></div><div class="gw">${weeks.map(w=>`<span>${fshort(w)}</span>`).join('')}</div></div>${rows}</div><p class="muted small">Le trait corail marque aujourd'hui. Les dates se règlent dans chaque corps de métier.</p>`
+   :empty('Rien à afficher','Ajoutez des dates à vos corps de métier pour les voir ici.',`<a class="btn primary" href="#/chantiers">Voir les chantiers</a>`));
+}
+
+function vReglages(){
+  const s=db.settings,f=(k,l,t,full)=>`<label class="f ${full?'full':''}">${l}<input type="${t||'text'}" data-s="${k}" value="${esc(s[k])}"></label>`;
+  return head('Réglages','Ces informations apparaissent sur vos devis et factures.')+
+  `<div class="cols2 eq"><div class="stack">
+   <div class="card"><h2 style="margin-bottom:14px">Mon entreprise</h2><div class="fgrid">
+    ${f('name','Nom de l\'entreprise',null,true)}${f('siret','SIRET')}${f('phone','Téléphone','tel')}${f('email','E-mail','email')}${f('address','Adresse')}
+    <label class="f full">Régime de TVA<select data-s="tvaMode"><option value="franchise" ${s.tvaMode==='franchise'?'selected':''}>Auto-entrepreneur : TVA non applicable (art. 293 B du CGI)</option><option value="assujetti" ${s.tvaMode==='assujetti'?'selected':''}>Assujetti à la TVA</option></select></label>
+   </div></div>
+   <details class="more"><summary>Plus de réglages</summary><div class="card" style="margin-top:6px"><div class="fgrid">
+    ${f('legal','Forme juridique (ex. EI, SARL)')}${f('iban','IBAN (affiché sur les factures)')}
+    <label class="f">Taux de TVA par défaut<select data-s="tva">${[5.5,10,20].map(x=>`<option value="${x}" ${+s.tva===x?'selected':''}>${x} %</option>`).join('')}</select></label><span></span>
+    ${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}
+    <label class="f full">Conditions de paiement<textarea rows="3" data-s="conditions">${esc(s.conditions)}</textarea></label></div></div></details>
+  </div><div class="stack"><div class="card" style="background:var(--sky-s);box-shadow:none"><h2 style="margin-bottom:6px">Facture électronique : ce qui arrive</h2>
+  <p style="margin:0 0 8px">Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du <b>1er septembre 2027</b>, les TPE, PME et micro-entreprises devront aussi en émettre, par une plateforme agréée.</p>
+  <p class="s" style="margin:0 0 8px">AUNE prépare déjà les nouvelles mentions : type de client, SIREN, nature de l'opération, TVA sur les débits, adresse de livraison. L'envoi par plateforme agréée viendra dans une prochaine version.</p>
+  <a href="https://www.impots.gouv.fr/professionnel/questions/partir-de-quand-suis-je-concerne-par-la-reforme-de-la-facturation" target="_blank" rel="noopener"><u>Voir le calendrier officiel (impots.gouv.fr)</u></a></div>
+  <div class="card"><h2 style="margin-bottom:6px">Sauvegarde de mes données</h2><p class="muted" style="margin-top:0">Vos données restent sur cet appareil. Exportez un fichier pour les sauvegarder ou les copier sur un autre appareil.</p>
+  <div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button></div></div></div></div>`;
+}
+
+/* ============ Rendu ============ */
+const NAV=[['accueil','Accueil','home','lemon'],['chantiers','Chantiers','site','lilac'],['devis','Devis','doc','sky'],['factures','Factures','inv','mint']];
+$('#side').innerHTML=`<a class="logo" href="#/accueil" aria-label="AUNE, accueil">${MARK}<span class="lb">AUNE</span></a><nav>${NAV.map(([k,l,i,c])=>`<a class="nv" href="#/${k}" data-n="${k}" aria-label="${l}" title="${l}"><span class="chip" style="background:var(--${c})">${ico(i)}</span><span class="lb">${l}</span></a>`).join('')}</nav><a class="nv set" href="#/reglages" data-n="reglages" aria-label="Réglages" title="Réglages"><span class="chip" style="background:var(--soft)">${ico('cog')}</span><span class="lb">Réglages</span></a>`;
+$('#mtop').innerHTML=`<a class="logo" href="#/accueil" style="padding:0">${MARK}AUNE</a><a class="gear" href="#/reglages" aria-label="Réglages">${ico('cog')}</a>`;
+$('#bottom').innerHTML=NAV.map(([k,l,i,c])=>`<a href="#/${k}" data-n="${k}" style="--c:var(--${c})"><span class="ib">${ico(i)}</span><span>${l}</span></a>`).join('');
+function route(){const p=(location.hash.replace(/^#\/?/,'')||'accueil').split('/');return{name:p[0],id:p[1],tab:p[2]}}
+let lastKey='';
+function render(){
+  const r=route();
+  const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),reglages:vReglages};
+  const key=r.name+'/'+(r.id||'');
+  if(key!==lastKey){ui.q='';ui.opt=false}
+  $('#main').innerHTML=(views[r.name]||vAccueil)();
+  const on={chantier:'chantiers',planning:'chantiers'}[r.name]||r.name;
+  const sec={chantiers:'chantiers',chantier:'chantiers',planning:'chantiers',devis:'devis',factures:'factures'}[r.name];
+  if(sec)document.body.dataset.sec=sec;else delete document.body.dataset.sec;
+  document.querySelectorAll('[data-n]').forEach(a=>a.classList.toggle('on',a.dataset.n===on));
+  const m=$('#main');
+  if(key!==lastKey){window.scrollTo(0,0);lastKey=key;m.classList.remove('enter');void m.offsetWidth;m.classList.add('enter')}
+  if(ui.flash){ // petit rebond sur l'élément qui vient de changer
+    const f=ui.flash;ui.flash=null;let el=null;
+    if(f.startsWith('lot:'))el=$(`[data-a="cycleLot"][data-id="${f.slice(4)}"]`);
+    else if(f==='line')el=[...document.querySelectorAll('#lines .line')].pop();
+    else if(f==='st')el=$('.sumtop .pill');
+    if(el)el.classList.add('pop');
+  }
+}
+const go=h=>{if(location.hash==='#/'+h)render();else location.hash='#/'+h};
+window.addEventListener('hashchange',render);
+$('#main').addEventListener('animationend',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('enter')});
+
+/* ============ Formulaires métier ============ */
+function chantierForm(c){
+  const isNew=!c;c=c||{status:'en cours'};
+  form(isNew?'Nouveau chantier':'Modifier le chantier',[
+    {k:'name',l:'Nom du chantier',req:1,full:1,auto:1},{k:'client',l:'Client',list:clientNames()},{k:'address',l:'Adresse du chantier'},
+    {k:'phone',l:'Téléphone du client',t:'tel',more:1},{k:'status',l:'Statut',t:'select',o:STAT_C,more:1},
+    {k:'start',l:'Début',t:'date',more:1},{k:'end',l:'Fin prévue',t:'date',more:1},
+    {k:'budget',l:'Budget prévu (€ HT)',t:'number',more:1},{k:'notes',l:'Notes',t:'textarea',full:1,more:1}],c,
+    v=>{if(isNew){v.id=uid();db.chantiers.push(v);setTimeout(()=>go('chantier/'+v.id),0)}else Object.assign(c,v);save()},!isNew);
+  if(!isNew){const b=document.createElement('button');b.type='button';b.className='btn danger';b.textContent='Supprimer';b.dataset.a='delChantier';b.dataset.id=c.id;$('#dlg .frow').prepend(b)}
+}
+function lotForm(l,cid){
+  const isNew=!l;l=l||{status:'à venir'};
+  form(isNew?'Nouveau corps de métier':'Modifier le corps de métier',[
+    {k:'trade',l:'Corps de métier',req:1,full:1,auto:1,list:TRADES},{k:'company',l:'Entreprise ou artisan'},{k:'phone',l:'Téléphone',t:'tel'},
+    {k:'status',l:'État',t:'select',o:STAT_L,more:1},{k:'budget',l:'Montant (€ HT)',t:'number',more:1},
+    {k:'start',l:'Début',t:'date',more:1},{k:'end',l:'Fin',t:'date',more:1},
+    {k:'contact',l:'Nom du contact',more:1},{k:'email',l:'E-mail',t:'email',more:1}],l,
+    v=>{if(isNew){v.id=uid();v.chantierId=cid;db.lots.push(v)}else Object.assign(l,v);save()},!isNew);
+  if(!isNew){const b=document.createElement('button');b.type='button';b.className='btn danger';b.textContent='Supprimer';b.dataset.a='delLot';b.dataset.id=l.id;$('#dlg .frow').prepend(b)}
+}
+function newDoc(type,cid){
+  const s=db.settings,c=ch(cid),t=today();
+  const d={id:uid(),type,number:nextNumber(type),chantierId:cid||'',clientName:c?c.client||'':'',clientAddress:c?c.address||'':'',date:t,due:addDays(t,30),
+    tva:s.tvaMode==='franchise'?0:+s.tva,status:'brouillon',notes:'',paid:0,clientType:'particulier',clientSiren:'',nature:'services',tvaDebits:false,deliveryAddress:'',lines:[{desc:'',qty:1,unit:'u',pu:0}]};
+  db.docs.push(d);save();go((type==='devis'?'devis/':'factures/')+d.id);
+}
+
+/* ============ PDF (impression) ============ */
+function printDoc(d){
+  const s=db.settings,c=ch(d.chantierId),isD=d.type==='devis';
+  const franchise=s.tvaMode==='franchise'&&!(+d.tva);
+  $('#print').innerHTML=`<div class="pg"><div class="hd"><div><b style="font-size:16px">${esc(s.name||'Votre entreprise')}</b><br>${esc(s.legal)}${s.siret?'<br>SIRET '+esc(s.siret):''}<br>${esc(s.address)}<br>${esc(s.phone)} ${esc(s.email)}</div>
+  <div style="text-align:right"><h1>${isD?'DEVIS':'FACTURE'}</h1>N° ${esc(d.number)}<br>Date : ${fdate(d.date)}<br>${d.due?(isD?'Valable jusqu\'au ':'Échéance : ')+fdate(d.due):''}</div></div>
+  <div style="margin-top:22px"><b>${isD?'Client':'Facturé à'}</b><br>${esc(d.clientName)}<br>${esc(d.clientAddress)}${d.clientType==='pro'&&d.clientSiren?`<br>SIREN : ${esc(d.clientSiren)}`:''}</div>
+  ${c?`<div style="margin-top:10px"><b>Chantier</b> : ${esc(c.name)}${c.address?' — '+esc(c.address):''}</div>`:''}
+  <div style="margin-top:6px"><b>Nature de l'opération</b> : ${{services:'Prestation de services',biens:'Livraison de biens',mixte:'Livraison de biens et prestation de services'}[d.nature||'services']}</div>
+  ${d.deliveryAddress?`<div style="margin-top:6px"><b>Adresse de livraison</b> : ${esc(d.deliveryAddress)}</div>`:''}
+  <table><thead><tr><th>Désignation</th><th class="r">Qté</th><th>Unité</th><th class="r">PU HT</th><th class="r">Total HT</th></tr></thead><tbody>
+  ${d.lines.filter(l=>l.desc||l.pu).map(l=>`<tr><td>${esc(l.desc).replace(/\n/g,'<br>')}</td><td class="r">${+l.qty||0}</td><td>${esc(l.unit)}</td><td class="r">${eur(+l.pu)}</td><td class="r">${eur((+l.qty||0)*(+l.pu||0))}</td></tr>`).join('')}</tbody></table>
+  <div class="tt"><div><span>Total HT</span><span>${eur(ht(d))}</span></div><div><span>TVA ${+d.tva||0} %</span><span>${eur(tva(d))}</span></div><div class="g2"><span>Total TTC</span><span>${eur(ttc(d))}</span></div>
+  ${!isD&&(+d.paid)?`<div><span>Déjà réglé</span><span>${eur(+d.paid)}</span></div><div class="g2"><span>Reste à payer</span><span>${eur(reste(d))}</span></div>`:''}</div>
+  ${franchise?'<p>TVA non applicable, art. 293 B du CGI.</p>':''}
+  ${(+d.tva)&&d.tvaDebits?'<p>Option pour le paiement de la TVA d\'après les débits.</p>':''}
+  ${d.notes?`<p style="white-space:pre-wrap">${esc(d.notes)}</p>`:''}
+  ${s.conditions?`<p style="font-size:11px">${esc(s.conditions)}</p>`:''}
+  ${!isD&&s.iban?`<p><b>Règlement par virement</b> : IBAN ${esc(s.iban)}</p>`:''}
+  ${isD?'<div class="sig">Bon pour accord — date et signature du client :</div>':''}</div>`;
+  const old=document.title;document.title=d.number+(d.clientName?' - '+d.clientName:'');
+  setTimeout(()=>{window.print();document.title=old},60);
+}
+
+/* ============ Exemple ============ */
+function demo(){
+  const t=today(),c1={id:uid(),name:'Rénovation maison Dupont',client:'M. et Mme Dupont',phone:'06 12 34 56 78',address:'12 rue des Lilas, 33000 Bordeaux',status:'en cours',budget:48000,start:addDays(t,-14),end:addDays(t,50),notes:'Accès par le portail latéral.'};
+  const c2={id:uid(),name:'Extension garage Martin',client:'Mme Martin',phone:'07 98 76 54 32',address:'3 chemin des Vignes, 33700 Mérignac',status:'à venir',budget:22500,start:addDays(t,20),end:addDays(t,75),notes:''};
+  db.chantiers.push(c1,c2);
+  const L=(c,trade,company,s,e,st,b,phone)=>({id:uid(),chantierId:c.id,trade,company,contact:'',phone:phone||'',email:'',start:addDays(t,s),end:addDays(t,e),status:st,budget:b});
+  db.lots.push(L(c1,'Maçonnerie / Gros œuvre','Bati Sud',-14,3,'terminé',14000,'05 56 00 00 01'),L(c1,'Électricité','Volt & Co',0,18,'en cours',6200,'05 56 00 00 02'),
+    L(c1,'Plomberie','Plomberie Garonne',5,24,'à venir',7800,'05 56 00 00 03'),L(c1,'Peinture','Couleurs 33',30,48,'à venir',5400,'05 56 00 00 04'),
+    L(c2,'Terrassement','Terra 33',20,28,'à venir',4200),L(c2,'Maçonnerie / Gros œuvre','Bati Sud',29,55,'à venir',11000));
+  const mk=(type,c,st,off,lines,paid,extra)=>db.docs.push(Object.assign({id:uid(),type,number:nextNumber(type),chantierId:c.id,clientName:c.client,clientAddress:c.address,date:addDays(t,off),due:addDays(t,off+30),tva:db.settings.tvaMode==='franchise'?0:+db.settings.tva,status:st,notes:'',paid:paid||0,lines},extra||{}));
+  mk('devis',c1,'accepté',-30,[{desc:'Gros œuvre : reprise des murs et dalle',qty:1,unit:'forfait',pu:14000},{desc:'Électricité complète',qty:1,unit:'forfait',pu:6200}]);
+  mk('devis',c2,'envoyé',-9,[{desc:'Terrassement et fondations',qty:1,unit:'forfait',pu:4200},{desc:'Élévation des murs',qty:38,unit:'m²',pu:285}]);
+  mk('facture',c1,'payée',-14,[{desc:'Acompte 30 % gros œuvre',qty:1,unit:'forfait',pu:4200}]);
+  mk('facture',c1,'envoyée',-40,[{desc:'Études et préparation',qty:1,unit:'forfait',pu:1500}]);
+  save();
+}
+
+/* ============ Actions ============ */
+const actions={
+  newChantier:()=>chantierForm(),editChantier:d=>chantierForm(ch(d.id)),
+  delChantier:d=>{if(confirm('Supprimer ce chantier et ses corps de métier ? Les devis et factures sont conservés.')){db.lots=db.lots.filter(l=>l.chantierId!==d.id);db.docs.forEach(x=>{if(x.chantierId===d.id)x.chantierId=''});db.chantiers=db.chantiers.filter(c=>c.id!==d.id);save();$('#dlg').close();go('chantiers')}},
+  newLot:d=>lotForm(null,d.id),editLot:d=>lotForm(lot(d.id)),
+  delLot:d=>{if(confirm('Supprimer ce corps de métier ?')){db.lots=db.lots.filter(l=>l.id!==d.id);save();$('#dlg').close();render()}},
+  cycleLot:d=>{const l=lot(d.id);l.status=STAT_L[(STAT_L.indexOf(l.status)+1)%STAT_L.length];save();ui.flash='lot:'+d.id;render()},
+  newDoc:d=>newDoc(d.type,d.id),
+  delDoc:d=>{if(confirm('Supprimer ce document définitivement ?')){const x=doc(d.id);db.docs=db.docs.filter(y=>y.id!==d.id);save();go(x.type==='devis'?'devis':'factures')}},
+  addLine:d=>{doc(d.id).lines.push({desc:'',qty:1,unit:'u',pu:0});save();ui.flash='line';render();const ls=document.querySelectorAll('#lines .line');const i=ls[ls.length-1]&&ls[ls.length-1].querySelector('.desc');if(i)i.focus()},
+  delLine:d=>{const x=doc(d.id);x.lines.splice(+d.i,1);if(!x.lines.length)x.lines.push({desc:'',qty:1,unit:'u',pu:0});save();render()},
+  printDoc:d=>printDoc(doc(d.id)),
+  setStatus:d=>{const x=doc(d.id);setField(x,'status',d.v);save();ui.flash='st';render()},
+  devis2fac:d=>{const q=doc(d.id),t=today();const f={id:uid(),type:'facture',number:nextNumber('facture'),chantierId:q.chantierId,clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:addDays(t,30),tva:q.tva,status:'brouillon',notes:'',paid:0,devisId:q.id,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',lines:q.lines.map(l=>({...l}))};db.docs.push(f);save();toast('Facture créée à partir du devis');go('factures/'+f.id)},
+  gprev:()=>{ui.goff--;render()},gnext:()=>{ui.goff++;render()},gtoday:()=>{ui.goff=0;render()},
+  closeDlg:()=>$('#dlg').close(),
+  demo:()=>{if(!db.chantiers.length||confirm('Ajouter des données d\'exemple à vos données actuelles ?')){demo();render();toast('Exemple chargé')}},
+  export:()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,1)],{type:'application/json'}));a.download='aune-sauvegarde-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)},
+  import:()=>$('#file').click(),
+  reset:()=>{if(confirm('Effacer toutes les données de cet appareil ? Pensez à exporter une sauvegarde avant.')){db=blank();save();go('accueil')}}
+};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&actions[t.dataset.a])actions[t.dataset.a](t.dataset,e)});
+function setField(d,k,v){
+  if(k==='tva'||k==='paid')v=parseFloat(v)||0;
+  if(k==='tvaDebits')v=(v===true||v==='1');
+  if(k==='clientSiren')v=String(v).replace(/\D/g,'').slice(0,9);
+  d[k]=v;
+  if(k==='clientName'&&v&&!d.clientSiren&&d.clientType!=='pro'){const o=db.docs.find(x=>x.id!==d.id&&x.clientName===v&&x.clientType==='pro');if(o){d.clientType='pro';d.clientSiren=o.clientSiren||''}}
+  if(k==='status'&&v==='payée')d.paid=ttc(d);
+  if(k==='chantierId'){const c=ch(v);if(c){if(!d.clientName)d.clientName=c.client||'';if(!d.clientAddress)d.clientAddress=c.address||''}}
+  if(k==='clientName'&&v&&!d.clientAddress){const o=db.docs.find(x=>x.id!==d.id&&x.clientName===v&&x.clientAddress)||db.chantiers.find(c=>c.client===v&&c.address);if(o)d.clientAddress=o.clientAddress||o.address}
+}
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.id==='gsel'){ui.gc=t.value;render();return}
+  if(t.id==='file'){const f=t.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d||!d.v)throw 0;if(confirm('Remplacer vos données actuelles par ce fichier ?')){db=normalize(d);save();go('accueil');toast('Données importées')}}catch(x){toast('Fichier non reconnu')}t.value=''};rd.readAsText(f);return}
+  if(t.dataset.l==='desc'){ // prestation connue : reprend unité et prix
+    const d=doc(t.dataset.id),l=d.lines[+t.dataset.i],k=catalog().get(String(t.value).trim().toLowerCase());
+    if(k&&!(+l.pu)){l.unit=k.unit;l.pu=k.pu;save();render()}return}
+  if(t.tagName==='SELECT'&&t.dataset.b){
+    const d=doc(t.dataset.id);setField(d,t.dataset.b,t.value);save();
+    if(['status','chantierId'].includes(t.dataset.b))render();
+    else{
+      if(t.dataset.b==='clientType')syncPro(d);
+      if(t.dataset.b==='tva'){const f=$('#debitsField');if(f)f.hidden=!(+d.tva)}
+      $('#tot').innerHTML=totalsHtml(d);$('#warn').innerHTML=warnHtml(d);
+    }return}
+  if(t.dataset.b==='clientName'){
+    const d=doc(t.dataset.id),a=$('[data-b="clientAddress"]'),ty=$('[data-b="clientType"]'),sr=$('[data-b="clientSiren"]');
+    if(a&&d.clientAddress)a.value=d.clientAddress;
+    if(ty)ty.value=d.clientType==='pro'?'pro':'particulier';
+    if(sr)sr.value=d.clientSiren||'';
+    syncPro(d);$('#warn').innerHTML=warnHtml(d);
+  }
+  if(t.tagName==='SELECT'&&t.dataset.s){db.settings[t.dataset.s]=t.dataset.s==='tva'?+t.value:t.value;save()}
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.q){ui.q=t.value;$('#list').innerHTML=t.dataset.q==='chantiers'?listChantiers():listDocs(t.dataset.q);return}
+  if(t.dataset.l!==undefined){const d=doc(t.dataset.id),l=d.lines[+t.dataset.i],k=t.dataset.l;l[k]=(k==='qty'||k==='pu')?(parseFloat(t.value)||0):t.value;save();$('#lt_'+t.dataset.i).textContent=eur((+l.qty||0)*(+l.pu||0));$('#tot').innerHTML=totalsHtml(d);return}
+  if(t.dataset.b!==undefined&&t.tagName!=='SELECT'){const d=doc(t.dataset.id);setField(d,t.dataset.b,t.value);save();if(t.dataset.b==='paid')$('#tot').innerHTML=totalsHtml(d);if(t.dataset.b==='clientSiren')$('#warn').innerHTML=warnHtml(d);return}
+  if(t.dataset.s!==undefined&&t.tagName!=='SELECT'){db.settings[t.dataset.s]=t.value;save()}
+});
+document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details.more')&&route().id)ui.opt=e.target.open},true);
+
+render();
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+AUNE v3.2 - suivi de chantier (PC + téléphone)
+
+Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
+Sur téléphone / installable comme une appli : héberger les 4 fichiers
+(ex. GitHub Pages), ouvrir l'adresse, puis "Ajouter à l'écran d'accueil".
+
+Les données restent sur l'appareil (stockage du navigateur).
+Réglages > Sauvegarde de mes données > Exporter = sauvegarde / transfert.

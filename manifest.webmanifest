@@ -1,0 +1,15 @@
+{
+  "name": "AUNE · Suivi de chantier",
+  "short_name": "AUNE",
+  "description": "Chantiers, corps de métier, planning, devis et factures.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8f7f3",
+  "theme_color": "#f8f7f3",
+  "lang": "fr",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
