@@ -1,6 +1,6 @@
 /* AUNE : générateur de PDF/A-3 « hybride » Factur-X, sans dépendance.
-   Chargé à la demande avec fx-fonts.js. API : FXPDF.build(model, xmlString) -> Promise<Uint8Array>
-   Le PDF embarque factur-x.xml (AFRelationship Alternative), des polices et un profil sRGB intégrés (PDF/A-3b). */
+   Chargé à la demande avec fx-fonts.js. API : FXPDF.build(model, xmlString|null) -> Promise<Uint8Array>
+   Avec un XML, le PDF embarque factur-x.xml (AFRelationship Alternative) ; sans XML, simple PDF/A-3b (devis), des polices et un profil sRGB intégrés (PDF/A-3b). */
 (function(){
 'use strict';
 const PW=595.28,PH=841.89,MX=42,TOP=48,BOT=60;
@@ -114,7 +114,7 @@ function layout(m,R,B){
 }
 
 const xmlEsc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-function xmp(m,now,xmlName){
+function xmp(m,now,xmlName,withXml){
   const prop=(n,d)=>`<rdf:li rdf:parseType="Resource"><pdfaProperty:name>${n}</pdfaProperty:name><pdfaProperty:valueType>Text</pdfaProperty:valueType><pdfaProperty:category>external</pdfaProperty:category><pdfaProperty:description>${d}</pdfaProperty:description></rdf:li>`;
   return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -122,8 +122,9 @@ function xmp(m,now,xmlName){
 <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title><rdf:Alt><rdf:li xml:lang="x-default">${xmlEsc(m.title)} ${xmlEsc(m.number)}</rdf:li></rdf:Alt></dc:title><dc:creator><rdf:Seq><rdf:li>${xmlEsc(m.seller.name||'AUNE')}</rdf:li></rdf:Seq></dc:creator></rdf:Description>
 <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"><pdf:Producer>AUNE</pdf:Producer></rdf:Description>
 <rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/"><xmp:CreatorTool>AUNE</xmp:CreatorTool><xmp:CreateDate>${now.iso}</xmp:CreateDate><xmp:ModifyDate>${now.iso}</xmp:ModifyDate></rdf:Description>
-<rdf:Description rdf:about="" xmlns:fx="urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#"><fx:DocumentType>INVOICE</fx:DocumentType><fx:DocumentFileName>${xmlName}</fx:DocumentFileName><fx:Version>1.0</fx:Version><fx:ConformanceLevel>EN 16931</fx:ConformanceLevel></rdf:Description>
+${withXml?`<rdf:Description rdf:about="" xmlns:fx="urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#"><fx:DocumentType>INVOICE</fx:DocumentType><fx:DocumentFileName>${xmlName}</fx:DocumentFileName><fx:Version>1.0</fx:Version><fx:ConformanceLevel>EN 16931</fx:ConformanceLevel></rdf:Description>
 <rdf:Description rdf:about="" xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/" xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#" xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#"><pdfaExtension:schemas><rdf:Bag><rdf:li rdf:parseType="Resource"><pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema><pdfaSchema:namespaceURI>urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#</pdfaSchema:namespaceURI><pdfaSchema:prefix>fx</pdfaSchema:prefix><pdfaSchema:property><rdf:Seq>${prop('DocumentFileName','name of the embedded XML invoice file')}${prop('DocumentType','INVOICE')}${prop('Version','The actual version of the Factur-X XML schema')}${prop('ConformanceLevel','The conformance level of the embedded Factur-X data')}</rdf:Seq></pdfaSchema:property></rdf:li></rdf:Bag></pdfaExtension:schemas></rdf:Description>
+`:''}
 </rdf:RDF></x:xmpmeta>
 <?xpacket end="w"?>`;
 }
@@ -162,11 +163,15 @@ async function build(m,xml){
   set(pagesId,parts(`<< /Type /Pages /Count ${pageIds.length} /Kids [${pageIds.map(i=>i+' 0 R').join(' ')}] >>`));
   const icc=add(await stream('/N 3 /Alternate /DeviceRGB',unb64(FX_ICC),true));
   const oi=add(parts(`<< /Type /OutputIntent /S /GTS_PDFA1 /OutputConditionIdentifier (sRGB IEC61966-2.1) /Info (sRGB IEC61966-2.1) /DestOutputProfile ${icc} 0 R >>`));
-  const xb=enc.encode(xml);
-  const emb=add(await stream(`/Type /EmbeddedFile /Subtype /text#2Fxml /Params << /Size ${xb.length} /ModDate (${pdate}) >>`,xb,false));
-  const fs=add(parts(`<< /Type /Filespec /F (${xmlName}) /UF (${xmlName}) /Desc (Factur-X invoice) /AFRelationship /Alternative /EF << /F ${emb} 0 R /UF ${emb} 0 R >> >>`));
-  const md=add(await stream('/Type /Metadata /Subtype /XML',enc.encode(xmp(m,{iso},xmlName)),false));
-  set(catalog,parts(`<< /Type /Catalog /Pages ${pagesId} 0 R /Metadata ${md} 0 R /OutputIntents [${oi} 0 R] /AF [${fs} 0 R] /Names << /EmbeddedFiles << /Names [(${xmlName}) ${fs} 0 R] >> >> /Lang (fr-FR) >>`));
+  let att='';
+  if(xml){
+    const xb=enc.encode(xml);
+    const emb=add(await stream(`/Type /EmbeddedFile /Subtype /text#2Fxml /Params << /Size ${xb.length} /ModDate (${pdate}) >>`,xb,false));
+    const fs=add(parts(`<< /Type /Filespec /F (${xmlName}) /UF (${xmlName}) /Desc (Factur-X invoice) /AFRelationship /Alternative /EF << /F ${emb} 0 R /UF ${emb} 0 R >> >>`));
+    att=` /AF [${fs} 0 R] /Names << /EmbeddedFiles << /Names [(${xmlName}) ${fs} 0 R] >> >>`;
+  }
+  const md=add(await stream('/Type /Metadata /Subtype /XML',enc.encode(xmp(m,{iso},xmlName,!!xml)),false));
+  set(catalog,parts(`<< /Type /Catalog /Pages ${pagesId} 0 R /Metadata ${md} 0 R /OutputIntents [${oi} 0 R]${att} /Lang (fr-FR) >>`));
   // assemblage
   const out=[parts('%PDF-1.7\n%'),new Uint8Array([0xE2,0xE3,0xCF,0xD3]),parts('\n')];
   let pos=out.reduce((n,b)=>n+b.length,0);const offs=[];

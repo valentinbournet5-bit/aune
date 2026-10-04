@@ -1,4 +1,4 @@
-AUNE v3.4 - suivi de chantier (PC + téléphone)
+AUNE v3.5 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -16,3 +16,11 @@ généré dans le navigateur (fx-pdf.js + fx-fonts.js, chargés à la demande). 
 (PDF/A-3b, schéma, règles européennes et françaises). Reste à faire : envoi à une plateforme agréée.
 Régénérer les polices : python3 tools/make-fx-fonts.py <profil sRGB.icc> (voir en-tête du script).
 Réglages > Plus de réglages : N° de TVA intracommunautaire (obligatoire si TVA).
+
+Gain de temps (v3.5) :
+- Bouton Envoyer (téléphone : partage du PDF vers WhatsApp, e-mail, SMS…) ou Télécharger le PDF (PC). Le PDF est
+  de qualité PDF/A-3 ; facture pro = Factur-X. Un brouillon partagé passe tout seul à « envoyé ».
+- Relancer : message de relance prêt à envoyer sur une facture en retard.
+- Dupliquer : copie un devis ou une facture en brouillon (Options du document).
+- Sauvegarde : rappel tous les 14 jours (si pas de synchro en ligne) et copie de sécurité avant un import,
+  « Tout effacer » ou un remplacement par la version en ligne (Réglages > Annuler le dernier remplacement).
