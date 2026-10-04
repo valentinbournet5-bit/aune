@@ -1,4 +1,4 @@
-AUNE v3.2 - suivi de chantier (PC + téléphone)
+AUNE v3.3 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -6,3 +6,6 @@ Sur téléphone / installable comme une appli : héberger les 4 fichiers
 
 Les données restent sur l'appareil (stockage du navigateur).
 Réglages > Sauvegarde de mes données > Exporter = sauvegarde / transfert.
+
+Synchronisation en ligne (v3.3) : voir worker/README.md pour mettre le Worker Cloudflare en ligne,
+puis renseigner son adresse dans index.html (const API). Tant que c'est vide, l'appli reste 100 % locale.

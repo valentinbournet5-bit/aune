@@ -346,7 +346,7 @@ const blank=()=>({v:1,chantiers:[],lots:[],tasks:[],docs:[],settings:{
 const normalize=d=>{const b=blank();d.settings=Object.assign(b.settings,d.settings||{});['chantiers','lots','tasks','docs'].forEach(k=>d[k]=d[k]||[]);return d};
 function load(){try{const d=JSON.parse(localStorage.getItem(LS));if(d&&d.v)return normalize(d)}catch(e){}return blank()}
 let db=load();
-function save(){try{localStorage.setItem(LS,JSON.stringify(db))}catch(e){toast('Enregistrement impossible : stockage plein ou bloqué')}}
+function save(){try{localStorage.setItem(LS,JSON.stringify(db))}catch(e){toast('Enregistrement impossible : stockage plein ou bloqué')}if(typeof syncMark==='function')syncMark()}
 const ch=id=>db.chantiers.find(c=>c.id===id);
 const lot=id=>db.lots.find(l=>l.id===id);
 const doc=id=>db.docs.find(d=>d.id===id);
@@ -595,7 +595,8 @@ function vReglages(){
   <p style="margin:0 0 8px">Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du <b>1er septembre 2027</b>, les TPE, PME et micro-entreprises devront aussi en émettre, par une plateforme agréée.</p>
   <p class="s" style="margin:0 0 8px">AUNE prépare déjà les nouvelles mentions : type de client, SIREN, nature de l'opération, TVA sur les débits, adresse de livraison. L'envoi par plateforme agréée viendra dans une prochaine version.</p>
   <a href="https://www.impots.gouv.fr/professionnel/questions/partir-de-quand-suis-je-concerne-par-la-reforme-de-la-facturation" target="_blank" rel="noopener"><u>Voir le calendrier officiel (impots.gouv.fr)</u></a></div>
-  <div class="card"><h2 style="margin-bottom:6px">Sauvegarde de mes données</h2><p class="muted" style="margin-top:0">Vos données restent sur cet appareil. Exportez un fichier pour les sauvegarder ou les copier sur un autre appareil.</p>
+  ${syCard()}
+  <div class="card"><h2 style="margin-bottom:6px">Sauvegarde de mes données</h2><p class="muted" style="margin-top:0">${API?'Exportez de temps en temps un fichier : c\'est votre copie de secours.':'Vos données restent sur cet appareil. Exportez un fichier pour les sauvegarder ou les copier sur un autre appareil.'}</p>
   <div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button></div></div></div></div>`;
 }
 
@@ -628,6 +629,7 @@ function render(){
 }
 const go=h=>{if(location.hash==='#/'+h)render();else location.hash='#/'+h};
 window.addEventListener('hashchange',render);
+window.addEventListener('hashchange',()=>checkLink());
 $('#main').addEventListener('animationend',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('enter')});
 
 /* ============ Formulaires métier ============ */
@@ -701,6 +703,7 @@ function demo(){
 
 /* ============ Actions ============ */
 const actions={
+  syLogin:()=>syLogin(),syNow:()=>syncNow(true),syOut:()=>syLogout(),syKeepLocal:()=>syResolve(true),syKeepOnline:()=>syResolve(false),
   newChantier:()=>chantierForm(),editChantier:d=>chantierForm(ch(d.id)),
   delChantier:d=>{if(confirm('Supprimer ce chantier et ses corps de métier ? Les devis et factures sont conservés.')){db.lots=db.lots.filter(l=>l.chantierId!==d.id);db.docs.forEach(x=>{if(x.chantierId===d.id)x.chantierId=''});db.chantiers=db.chantiers.filter(c=>c.id!==d.id);save();$('#dlg').close();go('chantiers')}},
   newLot:d=>lotForm(null,d.id),editLot:d=>lotForm(lot(d.id)),
@@ -718,7 +721,7 @@ const actions={
   demo:()=>{if(!db.chantiers.length||confirm('Ajouter des données d\'exemple à vos données actuelles ?')){demo();render();toast('Exemple chargé')}},
   export:()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,1)],{type:'application/json'}));a.download='aune-sauvegarde-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)},
   import:()=>$('#file').click(),
-  reset:()=>{if(confirm('Effacer toutes les données de cet appareil ? Pensez à exporter une sauvegarde avant.')){db=blank();save();go('accueil')}}
+  reset:()=>{if(confirm(sy.s?'Effacer toutes vos données, y compris la version en ligne ? Pensez à exporter une sauvegarde avant.':'Effacer toutes les données de cet appareil ? Pensez à exporter une sauvegarde avant.')){db=blank();save();go('accueil')}}
 };
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&actions[t.dataset.a])actions[t.dataset.a](t.dataset,e)});
 function setField(d,k,v){
@@ -764,7 +767,103 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details.more')&&route().id)ui.opt=e.target.open},true);
 
+/* ============ Synchronisation en ligne ============ */
+/* Un seul document par compte, avec un numéro de révision. Les données restent d'abord sur l'appareil ;
+   l'envoi se fait en arrière-plan. En cas de modification des deux côtés, l'utilisateur choisit. */
+const API=''; // adresse du Worker, ex. https://aune-api.monnom.workers.dev (vide = synchronisation masquée)
+const SK='aune.sync';
+let sy=(()=>{try{return JSON.parse(localStorage.getItem(SK))||{}}catch(e){return{}}})();
+const syKeep=()=>{try{localStorage.setItem(SK,JSON.stringify(sy))}catch(e){}};
+const isBlank=d=>!d.chantiers.length&&!d.lots.length&&!d.tasks.length&&!d.docs.length&&!d.settings.name;
+let syT=0,syBusy=false,syMut=0,syPending=null;
+const ago=t=>{const m=Math.round((Date.now()-t)/6e4);return m<1?'à l\'instant':m<60?'il y a '+m+' min':m<1440?'il y a '+Math.round(m/60)+' h':new Date(t).toLocaleDateString('fr-FR')};
+function syState(){
+  if(!sy.s)return '';
+  if(syPending)return 'Choix nécessaire : voir ci-dessous';
+  if(syBusy)return 'Synchronisation…';
+  if(sy.dirty)return navigator.onLine===false?'Hors ligne : sera envoyé dès le retour du réseau':'En attente d\'envoi';
+  return sy.at?'Synchronisé '+ago(sy.at):'Pas encore synchronisé';
+}
+function syPaint(){const e=$('#syst');if(e)e.textContent=syState()}
+function syCard(){
+  if(!API)return '';
+  if(sy.s)return `<div class="card"><h2 style="margin-bottom:6px">Synchronisation en ligne</h2><p class="muted" style="margin-top:0">Connecté : <b>${esc(sy.e)}</b><br><span id="syst">${esc(syState())}</span></p><div class="actions"><button class="btn primary" data-a="syNow">Synchroniser maintenant</button><button class="btn" data-a="syOut">Se déconnecter</button></div></div>`;
+  return `<div class="card"><h2 style="margin-bottom:6px">Retrouver mes données partout</h2><p class="muted" style="margin-top:0">Entrez votre e-mail : vous recevez un lien de connexion, sans mot de passe.</p><div class="fgrid"><label class="f full">E-mail<input type="email" id="syEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label></div><div class="actions"><button class="btn primary" data-a="syLogin">Recevoir mon lien</button></div></div>`;
+}
+async function syApi(path,method,body){
+  const r=await fetch(API+path,{method,headers:{'Content-Type':'application/json',...(sy.s?{Authorization:'Bearer '+sy.s}:{})},body:body?JSON.stringify(body):undefined});
+  let j={};try{j=await r.json()}catch(e){}
+  if(r.status===401&&sy.s){sy={};syKeep();toast('Session expirée : reconnectez-vous');if(route().name==='reglages')render()}
+  return{status:r.status,j};
+}
+function syncMark(){if(!API||!sy.s)return;syMut++;sy.dirty=true;syKeep();clearTimeout(syT);syT=setTimeout(()=>syncNow(),2000);syPaint()}
+const adopt=(data,rev)=>{db=normalize(data);try{localStorage.setItem(LS,JSON.stringify(db))}catch(e){}sy.rev=rev;sy.dirty=false;sy.at=Date.now();syKeep();render()};
+const busyUi=()=>{const d=$('#dlg');return (d&&d.open)||/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||'')};
+async function syncNow(manual){
+  if(!API||!sy.s||syBusy||syPending)return;
+  if(navigator.onLine===false){if(manual)toast('Pas de réseau pour le moment');return}
+  clearTimeout(syT);syBusy=true;syPaint();let again=false;
+  try{
+    if(sy.dirty){
+      const mut=syMut,{status,j}=await syApi('/api/data','PUT',{rev:sy.rev||0,data:db});
+      if(status===200){sy.rev=j.rev;sy.at=Date.now();if(mut===syMut)sy.dirty=false;else again=true;syKeep()}
+      else if(status===409)syConflict(j);
+      else if(manual||status===413)toast(status===413?'Données trop volumineuses pour la synchronisation':'Synchronisation impossible pour le moment');
+    }else{
+      const {status,j}=await syApi('/api/data','GET');
+      if(status===200){
+        if(j.rev>(sy.rev||0)&&j.data){if(!busyUi()||manual)adopt(j.data,j.rev);else{syBusy=false;return}}
+        else if(j.rev===0&&!isBlank(db)){sy.dirty=true;syBusy=false;return syncNow(manual)}
+        else{sy.at=Date.now();syKeep()}
+        if(manual)toast('Synchronisé')
+      }else if(manual)toast('Synchronisation impossible pour le moment');
+    }
+  }catch(e){if(manual)toast('Pas de réseau pour le moment')}
+  syBusy=false;syPaint();
+  if(again&&!syPending)syT=setTimeout(()=>syncNow(),500);
+}
+function syConflict(srv){
+  if(isBlank(db)){adopt(srv.data,srv.rev);toast('Données en ligne récupérées');return}
+  syPending=srv;
+  const n=d=>{d=normalize(d);return `${d.chantiers.length} chantier${d.chantiers.length>1?'s':''}, ${d.docs.length} devis/factures`};
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dform"><h2>Deux versions de vos données</h2><p>Cet appareil et la version en ligne sont différents. Laquelle garder ?</p>
+  <p style="margin:0"><b>Cet appareil</b> : ${esc(n(db))}</p><p style="margin:4px 0 14px"><b>En ligne</b> (${esc(ago(srv.updated))}) : ${esc(n(srv.data))}</p>
+  <div class="frow"><button type="button" class="btn" data-a="syKeepOnline">Reprendre la version en ligne</button><button type="button" class="btn primary" data-a="syKeepLocal">Garder cet appareil</button></div></div>`;
+  if(!dlg.open)dlg.showModal();syPaint();
+}
+function syResolve(keepLocal){
+  const srv=syPending;if(!srv)return;syPending=null;$('#dlg').close();
+  if(keepLocal){sy.rev=srv.rev;sy.dirty=true;syKeep();syncNow(true)}else adopt(srv.data,srv.rev);
+}
+async function syLogin(){
+  const el=$('#syEmail'),email=(el&&el.value||'').trim();
+  if(!/^\S+@\S+\.\S{2,}$/.test(email)){toast('Entrez une adresse e-mail valide');if(el)el.focus();return}
+  try{
+    const {status,j}=await syApi('/api/login','POST',{email});
+    if(status===200){toast('Lien envoyé : ouvrez votre e-mail');if(j.link)console.info('[test] '+j.link)}
+    else toast(status===429?'Trop de demandes : réessayez dans une heure':'Envoi impossible pour le moment');
+  }catch(e){toast('Pas de réseau pour le moment')}
+}
+async function syLogout(){
+  try{await syApi('/api/logout','POST')}catch(e){}
+  sy={};syKeep();toast('Déconnecté. Vos données restent sur cet appareil');render();
+}
+async function checkLink(){
+  const r=route();if(r.name!=='connexion'||!r.id||!API)return;
+  const t=r.id;history.replaceState(null,'',location.pathname+location.search+'#/reglages');render();
+  try{
+    const {status,j}=await syApi('/api/verify','POST',{token:t});
+    if(status===200){sy={s:j.session,e:j.email,rev:0,dirty:!isBlank(db)};syKeep();toast('Connecté');render();syncNow()}
+    else toast('Lien expiré ou déjà utilisé : demandez-en un nouveau')
+  }catch(e){toast('Pas de réseau pour le moment')}
+}
+$('#dlg').addEventListener('cancel',e=>{if(syPending)e.preventDefault()}); // le choix de version ne se ferme pas par Échap
+window.addEventListener('online',()=>syncNow());
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){syncNow()}else if(sy.dirty){clearTimeout(syT);syncNow()}});
+
 render();
+checkLink();syncNow();
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
 </body>

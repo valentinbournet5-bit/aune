@@ -1,0 +1,15 @@
+name = "aune-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Adresse publique de l'appli (sert aux liens magiques et au CORS).
+APP_URL = "https://valentinbournet5-bit.github.io/aune/"
+# Expéditeur des e-mails. Pour tester : onboarding@resend.dev (envoie seulement à votre propre e-mail Resend).
+# Pour de vrais utilisateurs : une adresse d'un domaine vérifié chez Resend.
+MAIL_FROM = "AUNE <onboarding@resend.dev>"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aune"
+database_id = "A_REMPLACER"
