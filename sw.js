@@ -1,4 +1,4 @@
-const C = 'aune-v5';
+const C = 'aune-v6';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
 
 self.addEventListener('install', e => {
@@ -16,6 +16,8 @@ self.addEventListener('activate', e => {
 // Réseau d'abord, cache en secours : l'app marche aussi hors connexion.
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Jamais de cache pour l'API de synchronisation (autre origine) : données personnelles.
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then(r => {
