@@ -74,7 +74,7 @@ faq("Comment résilier ?","En un clic, dans l'appli. Vos données restent à vou
 SCRIPT_JS = r"""<script>
 (function(){var els=document.querySelectorAll('.rv');
 if('IntersectionObserver' in window){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})},{rootMargin:'0px 0px -8% 0px'});els.forEach(function(el){io.observe(el)})}else{els.forEach(function(el){el.classList.add('in')})}
-var hero=document.querySelector('.hero'),st=document.getElementById('sticky');
+var hero=document.querySelector('.bh'),st=document.getElementById('sticky');
 if(hero&&st&&'IntersectionObserver' in window){new IntersectionObserver(function(es){st.classList.toggle('on',!es[0].isIntersecting)},{threshold:0}).observe(hero)}})();
 </script>
 """
@@ -87,110 +87,15 @@ INDEX = head("AUNE : devis, factures et chantiers pour artisans",
 <script>document.documentElement.className="js";if(/^#\\/(connexion|abonnement|reglages|accueil|chantiers?|devis|factures|clients|planning)/.test(location.hash))location.replace("app/"+location.hash);</script>
 ''') + HEADER + f'''
 <main>
-<section class="hero"><div class="wrap">
-<div>
-<span class="kicker"><i>{ic('check')}</i>Prêt pour la facture électronique 2027</span>
-<h1>Le <mark class="sky">devis</mark> est fait avant de quitter le <mark class="lilac">chantier</mark>.</h1>
-<p class="lead">Devis, factures et chantiers en quelques clics. Sur téléphone et ordinateur, même sans réseau.</p>
-<div class="cta"><a class="btn primary" href="app/">Essayer gratuitement {ic('arrow')}</a><a class="btn" href="#tarifs">Voir les tarifs</a></div>
-<p class="note">Sans carte bancaire, sans installation.</p>
-</div>
-<div class="stage">
-<span class="blob a"></span><span class="blob b"></span><span class="blob c"></span>
-<div class="browser"><div class="bar"><i></i><i></i><i></i></div><img src="img/desktop.webp" alt="Tableau de bord d'AUNE sur ordinateur" width="1400" height="887"></div>
-<div class="phone p1"><img src="img/m-home.webp" alt="AUNE sur téléphone" width="640" height="1385"></div>
-<div class="float f1"><span class="chip">{ic('euro')}</span><span><small>Facture payée</small><b>+ 2 400,00 €</b></span></div>
-<div class="float f3"><span class="chip">{ic('doc')}</span><span><small>Devis accepté</small><b>20 200,00 €</b></span></div>
-</div>
-</div></section>
-
-<section id="fonctions"><div class="wrap">
-<h2 class="rv">Trois gestes. <mark class="mint">C'est tout.</mark></h2>
-<div class="gestes" style="margin-top:34px">
-<div class="tile sky rv"><span class="plus">{ic('plus')}</span><span class="num">1</span><h3>Devis</h3><p>Sur place, en quelques lignes.</p></div>
-<div class="tile mint rv"><span class="plus">{ic('plus')}</span><span class="num">2</span><h3>Facture</h3><p>Le devis accepté devient facture.</p></div>
-<div class="tile lilac rv"><span class="plus">{ic('plus')}</span><span class="num">3</span><h3>Chantier</h3><p>Tout au même endroit.</p></div>
-</div>
-</div></section>
-
-<section style="padding-top:10px"><div class="wrap">
-<div class="bento">
-<div class="b sky s3 rv"><span class="chip">{ic('doc')}</span><h3>Devis et factures en PDF</h3><p>Prêts à envoyer par WhatsApp, mail ou SMS.</p><img class="paper" src="img/facture.webp" alt="Exemple de facture générée par AUNE" width="900" height="633" loading="lazy"></div>
-<div class="b lemon s3 rv"><span class="chip">{ic('shield')}</span><h3>Facture électronique</h3><p>Au format Factur-X, pour vos clients professionnels.</p>
-<div class="file">{ic('doc')}<span>FAC-2026-014-factur-x.pdf<small>PDF/A-3 · norme EN 16931</small></span></div></div>
-<div class="b mint s3 rv"><span class="chip">{ic('chart')}</span><h3>Votre chiffre d'affaires</h3><p>Par trimestre, avec le plafond.</p><div class="big">12 400 €</div><div class="bar2"><i style="width:15%"></i></div></div>
-<div class="b ink s3 rv"><span class="chip">{ic('sync')}</span><h3>Sur tous vos appareils</h3><p>Téléphone, ordinateur, et même sans réseau.</p></div>
-</div>
-<div class="trades rv" style="margin-top:26px"><span>Clients</span><span>Chantiers</span><span>Planning</span><span>Acompte</span><span>Avoirs</span><span>Relances</span></div>
-</div></section>
-
-<section id="installer"><div class="wrap">
-<h2 class="rv">Installez-la <mark class="lilac">comme une appli</mark>.</h2>
-<p class="sub rv">Ouvrez AUNE dans votre navigateur, puis ajoutez-la à l'écran d'accueil.</p>
-<div class="steps3">
-<div class="step rv"><span class="chip" style="background:var(--lilac-s)">{ic('phone')}</span><h3>iPhone</h3><ol><li>Safari, puis <b>Partager</b></li><li><b>Sur l'écran d'accueil</b></li></ol></div>
-<div class="step rv"><span class="chip" style="background:var(--mint-s)">{ic('phone')}</span><h3>Android</h3><ol><li>Chrome, puis menu <b>⋮</b></li><li><b>Installer l'application</b></li></ol></div>
-<div class="step rv"><span class="chip" style="background:var(--sky-s)">{ic('laptop')}</span><h3>Ordinateur</h3><ol><li>Chrome ou Edge</li><li><b>Icône d'installation</b> dans la barre d'adresse</li></ol></div>
-</div>
-</div></section>
-
-<section id="tarifs"><div class="wrap">
-<h2 class="rv">Gratuit pour commencer. <mark class="lemon">Pro</mark> si besoin.</h2>
-<div class="price" style="margin-top:34px">
-<div class="plan rv"><h3>Gratuit</h3><div class="amt">0 €</div>
-<ul><li>Devis, factures, avoirs</li><li>Clients, chantiers, planning</li><li class="no">Synchronisation</li><li class="no">Factur-X et chiffre d'affaires</li></ul>
-<a class="btn" href="app/">Commencer</a></div>
-<div class="plan pro rv"><span class="tag">30 jours offerts</span><h3>Pro</h3><div class="amt">9 € <small>/ mois</small></div><p style="margin:0;opacity:.8">ou 90 € par an</p>
-<ul><li>Tout le plan Gratuit</li><li>Synchronisation téléphone et ordinateur</li><li>Factur-X et chiffre d'affaires</li></ul>
-<a class="btn primary" href="app/">Essayer 30 jours</a></div>
-</div>
-<p class="legalnote">Sans carte bancaire pour l'essai. TVA non applicable, art. 293 B du CGI.</p>
-</div></section>
-
-<section id="faq"><div class="wrap">
-<h2 class="rv">Questions</h2><p class="sub"></p>
-<div class="faq">
-{FAQ_HTML}
-</div>
-</div></section>
-
-<section style="padding-top:10px"><div class="wrap"><div class="final rv">
-<h2>Prêt à gagner du temps ?</h2>
-<a class="btn white" href="app/">Ouvrir l'appli {ic('arrow')}</a>
-</div></div></section>
-</main>
-<div class="sticky" id="sticky"><a class="btn primary" href="app/">Ouvrir l'appli {ic('arrow')}</a></div>
-'''+SCRIPT_JS+f'''''' + FOOTER
-
-open(os.path.join(ROOT, 'index.html'), 'w').write(INDEX)
-
-# pages légales : on garde le texte, on regénère l'habillage
-for fn, title in [('mentions-legales.html', 'Mentions légales'), ('cgu.html', "Conditions d'utilisation et de vente"), ('confidentialite.html', 'Politique de confidentialité')]:
-    p = os.path.join(ROOT, fn)
-    m = re.search(r'<main class="wrap legal">(.*)</main>', open(p).read(), re.S)
-    if not m: raise SystemExit('contenu introuvable dans ' + fn)
-    page = head(title + ' · AUNE', title) + HEADER + '<main class="wrap legal">' + m.group(1) + '</main>\n' + FOOTER
-    open(p, 'w').write(page)
-
-page404 = head('Page introuvable · AUNE', 'Page introuvable', '<base href="/">\n') + HEADER + (
-    '<main class="wrap legal"><h1>Page introuvable</h1><p>Cette page n\'existe pas ou a été déplacée.</p>'
-    '<p><a class="btn primary" href="./">Retour à l\'accueil</a> <a class="btn" href="app/">Ouvrir l\'appli</a></p></main>\n') + FOOTER
-open(os.path.join(ROOT, '404.html'), 'w').write(page404)
-print('site régénéré')
-
-# ===== Version B (aperçu) : grands aplats de couleur, très peu de texte =====
-B = head("AUNE : version B", "Aperçu de la version B du site", '<meta name="robots" content="noindex">\n<script>document.documentElement.className="js";</script>\n') + HEADER + f'''
-<main>
 <section class="bh"><div class="wrap">
-<span class="kicker"><i>{ic('check')}</i>Prêt pour la facture électronique 2027</span>
-<h1>Le <mark>devis</mark> est fait avant de quitter le <mark>chantier</mark>.</h1>
-<p class="lead">Devis, factures et chantiers. Sur téléphone et ordinateur, même sans réseau.</p>
-<div class="cta"><a class="btn primary" href="app/">Essayer gratuitement {ic('arrow')}</a><a class="btn white" href="#tarifs">Voir les tarifs</a></div>
+<span class="kicker an" style="--d:0"><i>{ic('check')}</i>Prêt pour la facture électronique 2027</span>
+<h1 class="an" style="--d:1">Le <mark>devis</mark> est fait avant de quitter le <mark>chantier</mark>.</h1>
+<p class="lead an" style="--d:2">Devis, factures et chantiers. Sur téléphone et ordinateur, même sans réseau.</p>
+<div class="cta an" style="--d:3"><a class="btn primary" href="app/">Essayer gratuitement {ic('arrow')}</a><a class="btn white" href="#tarifs">Voir les tarifs</a></div>
 <div class="bstage">
 <div class="bphone"><img src="img/m-home.webp" alt="AUNE sur téléphone" width="640" height="1385"></div>
 <div class="float g1"><span class="chip">{ic('euro')}</span><span><small>Facture payée</small><b>+ 2 400,00 €</b></span></div>
 <div class="float g2"><span class="chip">{ic('doc')}</span><span><small>Devis accepté</small><b>20 200,00 €</b></span></div>
-<div class="float g3"><span class="chip">{ic('chart')}</span><span><small>Plafond micro</small><b>15 %</b></span></div>
 </div>
 </div></section>
 
@@ -198,18 +103,22 @@ B = head("AUNE : version B", "Aperçu de la version B du site", '<meta name="rob
 <div class="band sky rv"><div><span class="num">1</span><h2>Devis</h2><p>Sur place, en quelques lignes.</p></div><div class="shot"><img src="img/m-devis.webp" alt="Un devis dans AUNE" width="640" height="1385" loading="lazy"></div></div>
 <div class="band mint rev rv"><div><span class="num">2</span><h2>Facture</h2><p>Le devis accepté devient facture. Factur-X inclus.</p></div><img class="sheet" src="img/facture.webp" alt="Une facture générée par AUNE" width="900" height="633" loading="lazy"></div>
 <div class="band lemon rv"><div><span class="num">3</span><h2>Chantier</h2><p>Tous vos chantiers au même endroit.</p></div><div class="shot"><img src="img/m-chan.webp" alt="Les chantiers dans AUNE" width="640" height="1385" loading="lazy"></div></div>
-</div></div>
+</div>
+<div class="trades rv"><span>Facture électronique</span><span>Chiffre d'affaires</span><span>Tous vos appareils</span><span>Sans réseau</span></div>
+</div>
 
-<div class="wrap"><div class="also rv">
-<div><span class="chip" style="background:var(--lemon-s)">{ic('shield')}</span>Facture électronique</div>
-<div><span class="chip" style="background:var(--mint-s)">{ic('chart')}</span>Chiffre d'affaires</div>
-<div><span class="chip" style="background:var(--sky-s)">{ic('sync')}</span>Tous vos appareils</div>
-<div><span class="chip" style="background:var(--coral-s)">{ic('off')}</span>Même sans réseau</div>
-</div></div>
+<section id="installer"><div class="wrap">
+<h2 class="rv">Installez-la <mark class="lilac">comme une appli</mark>.</h2>
+<div class="steps3" style="margin-top:28px">
+<div class="step rv"><span class="chip" style="background:var(--lilac-s)">{ic('phone')}</span><h3>iPhone</h3><p>Safari, <b>Partager</b>, puis <b>Sur l'écran d'accueil</b>.</p></div>
+<div class="step rv"><span class="chip" style="background:var(--mint-s)">{ic('phone')}</span><h3>Android</h3><p>Chrome, menu <b>⋮</b>, puis <b>Installer l'application</b>.</p></div>
+<div class="step rv"><span class="chip" style="background:var(--sky-s)">{ic('laptop')}</span><h3>Ordinateur</h3><p>Chrome ou Edge, <b>icône d'installation</b> dans la barre d'adresse.</p></div>
+</div>
+</div></section>
 
-<section id="tarifs"><div class="wrap">
+<section id="tarifs" style="padding-top:20px"><div class="wrap">
 <h2 class="rv">Gratuit pour commencer. <mark class="lemon">Pro</mark> si besoin.</h2>
-<div class="price" style="margin-top:34px">
+<div class="price" style="margin-top:30px">
 <div class="plan rv"><h3>Gratuit</h3><div class="amt">0 €</div>
 <ul><li>Devis, factures, avoirs</li><li>Clients, chantiers, planning</li><li class="no">Synchronisation</li><li class="no">Factur-X et chiffre d'affaires</li></ul>
 <a class="btn" href="app/">Commencer</a></div>
@@ -232,6 +141,21 @@ B = head("AUNE : version B", "Aperçu de la version B du site", '<meta name="rob
 <a class="btn white" href="app/">Ouvrir l'appli {ic('arrow')}</a>
 </div></div></section>
 </main>
-''' + SCRIPT_JS + FOOTER
-open(os.path.join(ROOT, 'b.html'), 'w').write(B)
-print('version B générée')
+<div class="sticky" id="sticky"><a class="btn primary" href="app/">Ouvrir l'appli {ic('arrow')}</a></div>
+'''+SCRIPT_JS+FOOTER
+
+open(os.path.join(ROOT, 'index.html'), 'w').write(INDEX)
+
+# pages légales : on garde le texte, on regénère l'habillage
+for fn, title in [('mentions-legales.html', 'Mentions légales'), ('cgu.html', "Conditions d'utilisation et de vente"), ('confidentialite.html', 'Politique de confidentialité')]:
+    p = os.path.join(ROOT, fn)
+    m = re.search(r'<main class="wrap legal">(.*)</main>', open(p).read(), re.S)
+    if not m: raise SystemExit('contenu introuvable dans ' + fn)
+    page = head(title + ' · AUNE', title) + HEADER + '<main class="wrap legal">' + m.group(1) + '</main>\n' + FOOTER
+    open(p, 'w').write(page)
+
+page404 = head('Page introuvable · AUNE', 'Page introuvable', '<base href="/">\n') + HEADER + (
+    '<main class="wrap legal"><h1>Page introuvable</h1><p>Cette page n\'existe pas ou a été déplacée.</p>'
+    '<p><a class="btn primary" href="./">Retour à l\'accueil</a> <a class="btn" href="app/">Ouvrir l\'appli</a></p></main>\n') + FOOTER
+open(os.path.join(ROOT, '404.html'), 'w').write(page404)
+print('site régénéré')
