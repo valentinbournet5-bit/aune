@@ -159,3 +159,61 @@ page404 = head('Page introuvable · AUNE', 'Page introuvable', '<base href="/">\
     '<p><a class="btn primary" href="./">Retour à l\'accueil</a> <a class="btn" href="app/">Ouvrir l\'appli</a></p></main>\n') + FOOTER
 open(os.path.join(ROOT, '404.html'), 'w').write(page404)
 print('site régénéré')
+
+# ===== Version B (aperçu) : grands aplats de couleur, très peu de texte =====
+B = head("AUNE : version B", "Aperçu de la version B du site", '<meta name="robots" content="noindex">\n<script>document.documentElement.className="js";</script>\n') + HEADER + f'''
+<main>
+<section class="bh"><div class="wrap">
+<span class="kicker"><i>{ic('check')}</i>Prêt pour la facture électronique 2027</span>
+<h1>Le <mark>devis</mark> est fait avant de quitter le <mark>chantier</mark>.</h1>
+<p class="lead">Devis, factures et chantiers. Sur téléphone et ordinateur, même sans réseau.</p>
+<div class="cta"><a class="btn primary" href="app/">Essayer gratuitement {ic('arrow')}</a><a class="btn white" href="#tarifs">Voir les tarifs</a></div>
+<div class="bstage">
+<div class="bphone"><img src="img/m-home.webp" alt="AUNE sur téléphone" width="640" height="1385"></div>
+<div class="float g1"><span class="chip">{ic('euro')}</span><span><small>Facture payée</small><b>+ 2 400,00 €</b></span></div>
+<div class="float g2"><span class="chip">{ic('doc')}</span><span><small>Devis accepté</small><b>20 200,00 €</b></span></div>
+<div class="float g3"><span class="chip">{ic('chart')}</span><span><small>Plafond micro</small><b>15 %</b></span></div>
+</div>
+</div></section>
+
+<div class="wrap" id="fonctions"><div class="bands">
+<div class="band sky rv"><div><span class="num">1</span><h2>Devis</h2><p>Sur place, en quelques lignes.</p></div><div class="shot"><img src="img/m-devis.webp" alt="Un devis dans AUNE" width="640" height="1385" loading="lazy"></div></div>
+<div class="band mint rev rv"><div><span class="num">2</span><h2>Facture</h2><p>Le devis accepté devient facture. Factur-X inclus.</p></div><img class="sheet" src="img/facture.webp" alt="Une facture générée par AUNE" width="900" height="633" loading="lazy"></div>
+<div class="band lemon rv"><div><span class="num">3</span><h2>Chantier</h2><p>Tous vos chantiers au même endroit.</p></div><div class="shot"><img src="img/m-chan.webp" alt="Les chantiers dans AUNE" width="640" height="1385" loading="lazy"></div></div>
+</div></div>
+
+<div class="wrap"><div class="also rv">
+<div><span class="chip" style="background:var(--lemon-s)">{ic('shield')}</span>Facture électronique</div>
+<div><span class="chip" style="background:var(--mint-s)">{ic('chart')}</span>Chiffre d'affaires</div>
+<div><span class="chip" style="background:var(--sky-s)">{ic('sync')}</span>Tous vos appareils</div>
+<div><span class="chip" style="background:var(--coral-s)">{ic('off')}</span>Même sans réseau</div>
+</div></div>
+
+<section id="tarifs"><div class="wrap">
+<h2 class="rv">Gratuit pour commencer. <mark class="lemon">Pro</mark> si besoin.</h2>
+<div class="price" style="margin-top:34px">
+<div class="plan rv"><h3>Gratuit</h3><div class="amt">0 €</div>
+<ul><li>Devis, factures, avoirs</li><li>Clients, chantiers, planning</li><li class="no">Synchronisation</li><li class="no">Factur-X et chiffre d'affaires</li></ul>
+<a class="btn" href="app/">Commencer</a></div>
+<div class="plan pro rv"><span class="tag">30 jours offerts</span><h3>Pro</h3><div class="amt">9 € <small>/ mois</small></div><p style="margin:0;opacity:.8">ou 90 € par an</p>
+<ul><li>Tout le plan Gratuit</li><li>Synchronisation téléphone et ordinateur</li><li>Factur-X et chiffre d'affaires</li></ul>
+<a class="btn primary" href="app/">Essayer 30 jours</a></div>
+</div>
+<p class="legalnote">Sans carte bancaire pour l'essai. TVA non applicable, art. 293 B du CGI.</p>
+</div></section>
+
+<section id="faq" style="padding-top:20px"><div class="wrap">
+<h2 class="rv">Questions</h2><p class="sub"></p>
+<div class="faq">
+{FAQ_HTML}
+</div>
+</div></section>
+
+<section style="padding-top:10px"><div class="wrap"><div class="bfinal rv">
+<h2>Prêt à gagner <mark>du temps</mark> ?</h2>
+<a class="btn white" href="app/">Ouvrir l'appli {ic('arrow')}</a>
+</div></div></section>
+</main>
+''' + SCRIPT_JS + FOOTER
+open(os.path.join(ROOT, 'b.html'), 'w').write(B)
+print('version B générée')
