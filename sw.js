@@ -1,5 +1,5 @@
-const C = 'aune-v6';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg'];
+const C = 'aune-v7';
+const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './fx-pdf.js', './fx-fonts.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(FILES)));

@@ -28,7 +28,7 @@ jobs:
       - name: Préparer le site (uniquement les fichiers de l'appli)
         run: |
           mkdir _site
-          cp index.html sw.js manifest.webmanifest icon.svg _site/
+          cp index.html sw.js manifest.webmanifest icon.svg fx-pdf.js fx-fonts.js _site/
           touch _site/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
