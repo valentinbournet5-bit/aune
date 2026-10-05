@@ -1,4 +1,4 @@
-AUNE v4.0 - suivi de chantier (PC + téléphone)
+AUNE v4.1 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -56,3 +56,7 @@ Site vitrine et organisation (v4.0, en préparation) :
   Pages est refusé tant qu'il en reste (voir .github/workflows/pages.yml).
 - Suppression de compte (droit à l'effacement) : Réglages > Mon compte ; côté serveur POST /api/account/delete.
 - Passage sur le domaine aune.app : voir worker/README.md (APP_URL du Worker à changer après la bascule du DNS).
+
+Site vitrine (v4.1) : refonte graphique reprenant la direction artistique de l'appli (tuiles pastel, pastilles d'icônes,
+titres gras). Les pages sont générées par `python3 tools/build-site.py` (en-tête, pied de page, accueil) ; les textes des
+pages légales restent dans site/*.html. Visuels : site/img/ (captures de l'appli).
