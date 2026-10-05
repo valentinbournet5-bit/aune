@@ -571,7 +571,7 @@ const docSub=d=>{
   const av=db.docs.filter(x=>x.avoir&&x.refId===d.id);
   return av.length?'Avoir : '+av.map(x=>`<a href="#/factures/${x.id}"><u>${esc(x.number)}</u></a>`).join(', '):'';
 };
-const lockBanner=d=>isLocked(d)?`<div class="notice">${d.avoir?'Avoir émis':'Facture émise'} : ${d.avoir?'il':'elle'} n'est plus modifiable.${d.avoir?'':` Pour la corriger, créez un avoir. <button class="btn link" data-a="avoir" data-id="${d.id}">Créer un avoir</button>`}</div>`:'';
+const lockBanner=d=>isLocked(d)?`<div class="notice">${d.avoir?'Avoir émis':'Facture émise'} : ${d.avoir?'il':'elle'} n'est plus modifiable.${d.avoir?'':` ${d.status==='envoyée'&&!creditOf(d)?`Une erreur ? <button class="btn link" data-a="corriger" data-id="${d.id}">Corriger la facture</button> (avoir + copie modifiable) ou `:'Pour la corriger, '}<button class="btn link" data-a="avoir" data-id="${d.id}">créer un avoir</button>`}</div>`:'';
 function vDocEdit(d){
   const isD=d.type==='devis',sts=isD?STAT_D:STAT_F,items=[...catalog().values()];
   return `<a class="back" href="#/${isD?'devis':'factures'}">← ${isD?'Devis':'Factures'}</a>`+
@@ -1006,6 +1006,16 @@ const actions={
       notes:`Avoir sur la facture ${q.number} du ${fdate(q.date)}.`,paid:0,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',
       lines:q.lines.filter(l=>l.desc||l.pu).map(l=>({...l,pu:-Math.abs(+l.pu||0),qty:Math.abs(+l.qty||0)}))};
     db.docs.push(f);save();toast('Avoir créé : pour un avoir partiel, modifiez les lignes puis émettez-le');go('factures/'+f.id)},
+  corriger:d=>{ // avoir total émis + copie en brouillon, modifiable
+    const q=doc(d.id);if(!q||q.type!=='facture'||q.avoir||q.status!=='envoyée'||creditOf(q))return;
+    if(!confirm('Annuler la facture '+q.number+' par un avoir, et créer une copie à corriger ?'))return;
+    const t=today(),lines=q.lines.filter(l=>l.desc||l.pu);
+    const av={id:uid(),type:'facture',avoir:true,refId:q.id,refNumber:q.number,refDate:q.date,number:nextNumber('facture',true),chantierId:q.chantierId,clientId:q.clientId||'',clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:t,tva:q.tva,status:'envoyée',
+      notes:`Avoir sur la facture ${q.number} du ${fdate(q.date)}.`,paid:0,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',
+      lines:lines.map(l=>({...l,pu:-Math.abs(+l.pu||0),qty:Math.abs(+l.qty||0)}))};
+    db.docs.push(av);
+    const f={...q,id:uid(),number:nextNumber('facture'),date:t,due:addDays(t,30),status:'brouillon',paid:0,paidAt:'',lines:q.lines.map(l=>({...l}))};
+    db.docs.push(f);save();toast('Avoir '+av.number+' émis. Corrigez la copie, puis émettez-la');go('factures/'+f.id)},
   acompte:d=>{
     const q=doc(d.id),pct=acomptePct(),t=today();
     const f={id:uid(),type:'facture',number:nextNumber('facture'),chantierId:q.chantierId,clientId:q.clientId||'',clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:addDays(t,8),tva:q.tva,status:'brouillon',
