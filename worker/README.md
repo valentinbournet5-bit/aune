@@ -37,3 +37,14 @@ Sur votre ordinateur, avec Node.js installé, dans le dossier `worker/` :
   secrets `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET`. Webhook Stripe : `https://<worker>/api/stripe/webhook`,
   événements `checkout.session.completed` et `customer.subscription.created / updated / deleted`.
 - Tester d'abord en mode test de Stripe (carte 4242 4242 4242 4242), puis passer en mode live.
+
+## Passage sur le domaine aune.app
+
+1. GitHub : Settings > Pages > Custom domain = `aune.app` (puis cocher « Enforce HTTPS » quand c'est disponible).
+2. DNS (Cloudflare) : enregistrements pour `aune.app` : 4 enregistrements A vers 185.199.108.153, 185.199.109.153,
+   185.199.110.153, 185.199.111.153 (nuage gris « DNS only ») et un CNAME `www` vers `valentinbournet5-bit.github.io`.
+3. Worker : changer la variable `APP_URL` en `https://aune.app/app/` puis déployer. Le serveur n'accepte que cette origine (CORS) :
+   tant que `APP_URL` n'est pas changée, l'appli sur aune.app ne peut pas se synchroniser.
+4. Les données locales sont propres à chaque adresse : avant la bascule, se connecter et synchroniser sur l'ancien appareil,
+   puis se reconnecter sur aune.app (ou exporter / importer un fichier).
+5. Stripe : le retour de paiement utilise `APP_URL` (rien d'autre à changer).

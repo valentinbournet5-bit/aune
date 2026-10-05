@@ -1,4 +1,4 @@
-AUNE v3.9 - suivi de chantier (PC + téléphone)
+AUNE v4.0 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -48,3 +48,11 @@ Avoirs et verrouillage (v3.8) :
 
 Formules (v3.9) : gratuit (appli locale) et Pro (synchro, Factur-X, suivi du CA), essai de 30 jours, abonnement Stripe
 (9 €/mois ou 90 €/an). Voir worker/README.md pour la mise en route côté serveur.
+
+Site vitrine et organisation (v4.0, en préparation) :
+- site/ : site vitrine (accueil, tarifs, FAQ, mentions légales, CGU/CGV, confidentialité) -> publié à la racine
+- app/  : l'application -> publiée sous /app/
+- Les pages légales contiennent des emplacements [[NOM]], [[SIRET]], [[ADRESSE]], [[EMAIL]] : le déploiement GitHub
+  Pages est refusé tant qu'il en reste (voir .github/workflows/pages.yml).
+- Suppression de compte (droit à l'effacement) : Réglages > Mon compte ; côté serveur POST /api/account/delete.
+- Passage sur le domaine aune.app : voir worker/README.md (APP_URL du Worker à changer après la bascule du DNS).
