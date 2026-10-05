@@ -26,11 +26,11 @@ nav.links a:hover{background:var(--soft);color:var(--ink)}
 .btn.sm{min-height:44px;padding:8px 18px;font-size:15px;border-radius:14px}
 .btn .ic{font-size:19px}
 /* titres */
-h1,h2,h3{margin:0;letter-spacing:-.03em;line-height:1.04;font-weight:800}
+h1,h2,h3{margin:0;letter-spacing:-.03em;line-height:1.1;font-weight:800}
 h1{font-size:clamp(42px,6.6vw,80px)}
 h2{font-size:clamp(32px,4.4vw,52px);margin-bottom:12px}
 h3{font-size:21px;letter-spacing:-.015em;line-height:1.2}
-mark{color:inherit;border-radius:.26em;padding:.02em .16em .06em;margin:0 -.02em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+mark{color:inherit;display:inline-block;line-height:1;padding:.04em .16em .1em;margin:.02em -.02em;border-radius:.26em;white-space:normal}
 mark.sky{background:var(--sky)}mark.mint{background:var(--mint)}mark.lilac{background:var(--lilac)}mark.lemon{background:var(--lemon)}mark.coral{background:var(--coral)}
 .lead{font-size:clamp(18px,2vw,22px);color:var(--muted);margin:22px 0 30px;max-width:540px}
 .kicker{display:inline-flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:99px;padding:7px 16px 7px 10px;font-weight:700;font-size:15px;margin-bottom:22px;box-shadow:var(--shadow-s)}
