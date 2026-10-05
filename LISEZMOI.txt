@@ -1,4 +1,4 @@
-AUNE v3.5 - suivi de chantier (PC + téléphone)
+AUNE v3.6 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -24,3 +24,11 @@ Gain de temps (v3.5) :
 - Dupliquer : copie un devis ou une facture en brouillon (Options du document).
 - Sauvegarde : rappel tous les 14 jours (si pas de synchro en ligne) et copie de sécurité avant un import,
   « Tout effacer » ou un remplacement par la version en ligne (Réglages > Annuler le dernier remplacement).
+
+Clients, acompte, assurance (v3.6) :
+- Onglet Clients : carnet qui se remplit tout seul depuis les devis, factures et chantiers (anciennes données reprises).
+  Fiche client : appeler, e-mail, nouveau devis/facture préremplis, factures à encaisser.
+- Devis accepté : bouton « Facture d'acompte X % » (pourcentage réglable dans Plus de réglages). La facture finale
+  déduit les acomptes déjà réglés.
+- Réglages > Plus de réglages : assurance (décennale / RC pro, assureur, n° de contrat, zone) affichée sur les PDF
+  et dans le Factur-X.

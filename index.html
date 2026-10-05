@@ -25,6 +25,7 @@
 body[data-sec=chantiers]{--p:var(--lilac);--pt:var(--ink)}
 body[data-sec=devis]{--p:var(--sky);--pt:var(--ink)}
 body[data-sec=factures]{--p:var(--mint);--pt:var(--ink)}
+body[data-sec=clients]{--p:var(--coral);--pt:var(--ink)}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -326,6 +327,7 @@ const I={
  site:'<path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/>',
  doc:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
  inv:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+ user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
  cog:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>'
 };
 const ico=n=>`<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -339,11 +341,23 @@ const STAT_F=['brouillon','envoyée','payée'];
 const TRADES=['Terrassement','Maçonnerie / Gros œuvre','Charpente','Couverture','Menuiserie','Plomberie','Électricité','Chauffage / Clim','Plâtrerie / Isolation','Carrelage','Peinture','Façade','Paysage / VRD','Autre'];
 const tone=s=>({'en cours':'info','à venir':'','terminé':'ok','en pause':'warn','brouillon':'','envoyé':'info','envoyée':'info','accepté':'ok','refusé':'bad','payée':'ok','en retard':'bad'}[s]||'');
 const pill=s=>`<span class="pill ${tone(s)}">${esc(s)}</span>`;
-const blank=()=>({v:1,chantiers:[],lots:[],tasks:[],docs:[],settings:{
+const blank=()=>({v:1,chantiers:[],lots:[],tasks:[],docs:[],clients:[],settings:{
   name:'',legal:'',siret:'',vatId:'',address:'',email:'',phone:'',iban:'',tvaMode:'franchise',tva:20,
-  devisPrefix:'DEV',facturePrefix:'FAC',
+  devisPrefix:'DEV',facturePrefix:'FAC',acomptePct:30,
+  insKind:'Garantie décennale',insName:'',insAddr:'',insPolicy:'',insZone:'France métropolitaine',
   conditions:"Paiement à 30 jours. En cas de retard : pénalités à 3 fois le taux d'intérêt légal et indemnité forfaitaire de recouvrement de 40 €."}});
-const normalize=d=>{const b=blank();d.settings=Object.assign(b.settings,d.settings||{});['chantiers','lots','tasks','docs'].forEach(k=>d[k]=d[k]||[]);return d};
+const normalize=d=>{const b=blank();d.settings=Object.assign(b.settings,d.settings||{});['chantiers','lots','tasks','docs'].forEach(k=>d[k]=d[k]||[]);if(!d.clients){d.clients=[];seedClients(d)}return d};
+/* Carnet de clients : se remplit à partir des devis, factures et chantiers existants (sans doublon, sans rien effacer) */
+const nkey=n=>String(n||'').trim().toLowerCase();
+function seedClients(d){
+  const m=new Map((d.clients||[]).map(c=>[nkey(c.name),c]));
+  const put=(name,o)=>{const k=nkey(name);if(!k)return;let c=m.get(k);
+    if(!c){c={id:uid(),name:String(name).trim(),type:'particulier',siren:'',address:'',phone:'',email:'',notes:''};m.set(k,c)}
+    ['address','phone','siren'].forEach(f=>{if(o[f]&&!c[f])c[f]=o[f]});if(o.type==='pro'){c.type='pro'}};
+  (d.chantiers||[]).forEach(c=>put(c.client,{phone:c.phone}));
+  [...(d.docs||[])].sort((a,b)=>(a.date||'').localeCompare(b.date||'')).forEach(x=>put(x.clientName,{address:x.clientAddress,siren:x.clientSiren,type:x.clientType}));
+  d.clients=[...m.values()];
+}
 function load(){try{const d=JSON.parse(localStorage.getItem(LS));if(d&&d.v)return normalize(d)}catch(e){}return blank()}
 let db=load();
 function save(){try{localStorage.setItem(LS,JSON.stringify(db))}catch(e){toast('Enregistrement impossible : stockage plein ou bloqué')}if(typeof syncMark==='function')syncMark()}
@@ -365,7 +379,21 @@ function nextNumber(type){
   let max=0;db.docs.filter(d=>d.type===type).forEach(d=>{const m=String(d.number||'').match(/-(\d{4})-(\d+)$/);if(m&&+m[1]===y)max=Math.max(max,+m[2])});
   return `${pre}-${y}-${String(max+1).padStart(3,'0')}`;
 }
-const clientNames=()=>[...new Set([...db.chantiers.map(c=>c.client),...db.docs.map(d=>d.clientName)].filter(Boolean))];
+const clientNames=()=>[...new Set([...db.clients.map(c=>c.name),...db.chantiers.map(c=>c.client),...db.docs.map(d=>d.clientName)].filter(Boolean))];
+const findClient=n=>{const k=nkey(n);return k?db.clients.find(c=>nkey(c.name)===k):null};
+const clientById=id=>db.clients.find(c=>c.id===id);
+const clientOf=d=>(d.clientId&&clientById(d.clientId))||findClient(d.clientName);
+const docsOfClient=c=>db.docs.filter(d=>d.clientId===c.id||(!d.clientId&&nkey(d.clientName)===nkey(c.name)));
+/* apprend le client depuis un document ou un chantier : crée la fiche si besoin, complète les champs vides */
+function learnClient(d){
+  if(!d||!nkey(d.clientName))return;
+  let c=clientOf(d);
+  if(!c){c={id:uid(),name:d.clientName.trim(),type:'particulier',siren:'',address:'',phone:'',email:'',notes:''};db.clients.push(c)}
+  if(d.clientAddress&&!c.address)c.address=d.clientAddress;
+  if(d.clientType==='pro'){c.type='pro';if(d.clientSiren&&!c.siren)c.siren=d.clientSiren}
+  if(d.clientId!==c.id)d.clientId=c.id;
+  save();
+}
 const catalog=()=>{const m=new Map();db.docs.forEach(d=>d.lines.forEach(l=>{if(l.desc&&+l.pu)m.set(l.desc.trim().toLowerCase(),l)}));return m};
 
 /* ============ UI ============ */
@@ -421,7 +449,7 @@ function vAccueil(){
   }
   const todo=[];
   db.docs.filter(isLate).forEach(d=>todo.push({d,w:0,msg:'En retard · échue le '+fdate(d.due)}));
-  db.docs.filter(d=>d.type==='devis'&&d.status==='accepté'&&!db.docs.some(f=>f.devisId===d.id)).forEach(d=>todo.push({d,w:1,msg:'Devis accepté · créer la facture'}));
+  db.docs.filter(d=>d.type==='devis'&&d.status==='accepté'&&!db.docs.some(f=>f.devisId===d.id&&!f.acompte)).forEach(d=>todo.push({d,w:1,msg:'Devis accepté · créer la facture'}));
   db.docs.filter(d=>d.type==='devis'&&d.status==='envoyé'&&d.date<=addDays(t,-7)).forEach(d=>todo.push({d,w:2,msg:'Sans réponse depuis '+Math.round((D(t)-D(d.date))/DAY)+' jours'}));
   db.docs.filter(d=>d.status==='brouillon').forEach(d=>todo.push({d,w:3,msg:(d.type==='devis'?'Devis':'Facture')+' brouillon à terminer'}));
   todo.sort((a,b)=>a.w-b.w);
@@ -507,6 +535,7 @@ function totalsHtml(d){
 const needSiren=d=>d.type==='facture'&&d.clientType==='pro'&&!/^\d{9}$/.test(d.clientSiren||'');
 const warnHtml=d=>needSiren(d)?`<div class="warnbox">SIREN du client à renseigner : obligatoire sur les factures destinées à un professionnel.</div>`:'';
 const syncPro=d=>{const f=$('#sirenField');if(f)f.hidden=d.clientType!=='pro'};
+const acomptePct=()=>Math.min(100,Math.max(1,parseFloat(db.settings.acomptePct)||30));
 function nextButtons(d){
   const b=(v,l,cls)=>`<button class="btn ${cls||''}" data-a="setStatus" data-id="${d.id}" data-v="${v}">${l}</button>`;
   const lab=canShareFiles()?'Envoyer':'Télécharger le PDF';
@@ -514,7 +543,8 @@ function nextButtons(d){
   if(d.type==='devis'){
     if(d.status==='brouillon')return send('primary')+b('envoyé','Marquer comme envoyé');
     if(d.status==='envoyé')return b('accepté','Devis accepté','primary')+b('refusé','Refusé')+send();
-    if(d.status==='accepté')return `<button class="btn primary" data-a="devis2fac" data-id="${d.id}">Créer la facture</button>`+send();
+    if(d.status==='accepté'){const pct=acomptePct(),hasAc=db.docs.some(f=>f.devisId===d.id&&f.acompte);
+      return `<button class="btn primary" data-a="devis2fac" data-id="${d.id}">Créer la facture</button>`+(hasAc?'':`<button class="btn" data-a="acompte" data-id="${d.id}">Facture d'acompte ${pct} %</button>`)+send()}
     return b('brouillon','Rouvrir en brouillon')+send();
   }
   const rel=isLate(d)?`<button class="btn" data-a="relance" data-id="${d.id}">Relancer</button>`:'';
@@ -589,9 +619,13 @@ function vReglages(){
     <label class="f full">Régime de TVA<select data-s="tvaMode"><option value="franchise" ${s.tvaMode==='franchise'?'selected':''}>Auto-entrepreneur : TVA non applicable (art. 293 B du CGI)</option><option value="assujetti" ${s.tvaMode==='assujetti'?'selected':''}>Assujetti à la TVA</option></select></label>
    </div></div>
    <details class="more"><summary>Plus de réglages</summary><div class="card" style="margin-top:6px"><div class="fgrid">
+    <p class="s full" style="margin:2px 0 -4px"><b>Assurance (bâtiment)</b> : mentions obligatoires sur vos devis et factures. Laissez vide si non concerné.</p>
+    <label class="f full">Type d'assurance<select data-s="insKind">${['Garantie décennale','Responsabilité civile professionnelle','Garantie décennale et responsabilité civile professionnelle'].map(x=>`<option ${s.insKind===x?'selected':''}>${x}</option>`).join('')}</select></label>
+    ${f('insName','Assureur')}${f('insPolicy','N° de contrat')}${f('insAddr','Adresse de l\'assureur',null,true)}${f('insZone','Zone géographique couverte',null,true)}
+    <p class="s full" style="margin:2px 0 -4px"><b>Entreprise</b></p>
     ${f('legal','Forme juridique (ex. EI, SARL)')}${f('iban','IBAN (affiché sur les factures)')}${f('vatId','N° de TVA intracommunautaire (si assujetti)')}
     <label class="f">Taux de TVA par défaut<select data-s="tva">${[5.5,10,20].map(x=>`<option value="${x}" ${+s.tva===x?'selected':''}>${x} %</option>`).join('')}</select></label><span></span>
-    ${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}
+    ${f('acomptePct','Acompte proposé sur les devis (%)','number')}${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}
     <label class="f full">Conditions de paiement<textarea rows="3" data-s="conditions">${esc(s.conditions)}</textarea></label></div></div></details>
   </div><div class="stack"><div class="card" style="background:var(--sky-s);box-shadow:none"><h2 style="margin-bottom:6px">Facture électronique : ce qui arrive</h2>
   <p style="margin:0 0 8px">Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du <b>1er septembre 2027</b>, les TPE, PME et micro-entreprises devront aussi en émettre, par une plateforme agréée.</p>
@@ -602,8 +636,44 @@ function vReglages(){
   <div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</div></div></div></div>`;
 }
 
+/* ============ Clients ============ */
+const dueOf=c=>docsOfClient(c).filter(d=>d.type==='facture'&&d.status==='envoyée').reduce((x,d)=>x+reste(d),0);
+function listClients(){
+  const q=ui.q.toLowerCase();
+  const l=[...db.clients].filter(c=>!q||(c.name+' '+c.phone+' '+c.email+' '+c.address).toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+  if(!l.length)return empty(q?'Aucun résultat':'Aucun client','Les clients s\'ajoutent tout seuls quand vous créez un devis ou une facture.',q?'':`<button class="btn primary" data-a="newClient">+ Client</button>`);
+  return `<div class="list">${l.map(c=>{const due=dueOf(c);return `<a class="row" href="#/clients/${c.id}">${av(c.name,c.id)}<div class="main"><div class="t">${esc(c.name)}</div><div class="s">${esc([c.phone,c.email,c.type==='pro'?'Pro':''].filter(Boolean).join(' · ')||c.address||'Coordonnées à compléter')}</div></div>${due>0?`<div class="rside"><div class="amt">${eur(due)}</div><span class="pill warn">à encaisser</span></div>`:''}</a>`}).join('')}</div>`;
+}
+function vClients(){
+  return head('Clients','',`<button class="btn primary" data-a="newClient">+ Client</button>`)+
+  (db.clients.length>4?`<input class="search" type="search" placeholder="Rechercher un client" data-q="clients" value="${esc(ui.q)}">`:'')+
+  `<div id="list">${listClients()}</div>`;
+}
+function vClient(r){
+  const c=clientById(r.id);
+  if(!c)return empty('Client introuvable','Il a peut-être été supprimé.','<a class="btn" href="#/clients">Retour</a>');
+  const ds=docsOfClient(c).sort((a,b)=>(b.date||'').localeCompare(a.date||'')),fac=ds.filter(d=>d.type==='facture'&&d.status!=='brouillon');
+  const tel=String(c.phone||'').replace(/[^\d+]/g,'');
+  return `<a class="back" href="#/clients">← Clients</a>`+head(esc(c.name),esc([c.address,c.type==='pro'&&c.siren?'SIREN '+c.siren:''].filter(Boolean).join(' · ')),`<button class="btn" data-a="editClient" data-id="${c.id}">Modifier</button>`)+
+  `<div class="actions" style="margin-bottom:18px">${tel?`<a class="btn" href="tel:${esc(tel)}">Appeler</a>`:''}${c.email?`<a class="btn" href="mailto:${esc(c.email)}">E-mail</a>`:''}<button class="btn" data-a="newDocFor" data-type="devis" data-id="${c.id}">+ Devis</button><button class="btn" data-a="newDocFor" data-type="facture" data-id="${c.id}">+ Facture</button></div>`+(!tel&&!c.email?`<p class="muted small" style="margin:-8px 0 16px">Ajoutez un téléphone ou un e-mail (Modifier) pour appeler ou envoyer en un clic.</p>`:'')+
+  (ds.length?`<div class="kpis three">${kpi('mint','Facturé',eur(fac.reduce((x,d)=>x+ttc(d),0)))}${kpi('coral','À encaisser',eur(dueOf(c)))}${kpi('sky','Devis en attente',eur(ds.filter(d=>d.type==='devis'&&d.status==='envoyé').reduce((x,d)=>x+ttc(d),0)))}</div>`:'')+
+  (ds.length?`<div class="sec"><h2>Devis et factures<span class="count">${ds.length}</span></h2></div><div class="list">${ds.map(d=>docRow(d)).join('')}</div>`:empty('Pas encore de document','Créez un devis ou une facture pour ce client.',''))+
+  (c.notes?`<div class="card" style="margin-top:18px"><h2 style="margin-bottom:6px">Notes</h2><p style="margin:0;white-space:pre-wrap">${esc(c.notes)}</p></div>`:'');
+}
+function clientForm(c){
+  const isNew=!c;c=c||{type:'particulier'};const old=c.name;
+  form(isNew?'Nouveau client':'Modifier le client',[
+    {k:'name',l:'Nom',req:1,full:1,auto:1},{k:'phone',l:'Téléphone',t:'tel'},{k:'email',l:'E-mail',t:'email'},{k:'address',l:'Adresse',full:1},
+    {k:'type',l:'Type de client',t:'select',o:[['particulier','Particulier'],['pro','Professionnel (entreprise)']],more:1},{k:'siren',l:'SIREN (professionnel)',more:1},{k:'notes',l:'Notes',t:'textarea',full:1,more:1}],c,
+    v=>{v.siren=String(v.siren).replace(/\D/g,'').slice(0,9);
+      if(isNew){v.id=uid();db.clients.push(v);setTimeout(()=>go('clients/'+v.id),0)}
+      else{Object.assign(c,v);if(old!==c.name){db.docs.forEach(x=>{if(!x.clientId&&nkey(x.clientName)===nkey(old))x.clientId=c.id});db.chantiers.forEach(x=>{if(nkey(x.client)===nkey(old))x.client=c.name})}}
+      save()},!isNew&&(c.type==='pro'||!!c.notes));
+  if(!isNew){const b=document.createElement('button');b.type='button';b.className='btn danger';b.textContent='Supprimer';b.dataset.a='delClient';b.dataset.id=c.id;$('#dlg .frow').prepend(b)}
+}
+
 /* ============ Rendu ============ */
-const NAV=[['accueil','Accueil','home','lemon'],['chantiers','Chantiers','site','lilac'],['devis','Devis','doc','sky'],['factures','Factures','inv','mint']];
+const NAV=[['accueil','Accueil','home','lemon'],['chantiers','Chantiers','site','lilac'],['devis','Devis','doc','sky'],['factures','Factures','inv','mint'],['clients','Clients','user','coral']];
 $('#side').innerHTML=`<a class="logo" href="#/accueil" aria-label="AUNE, accueil">${MARK}<span class="lb">AUNE</span></a><nav>${NAV.map(([k,l,i,c])=>`<a class="nv" href="#/${k}" data-n="${k}" aria-label="${l}" title="${l}"><span class="chip" style="background:var(--${c})">${ico(i)}</span><span class="lb">${l}</span></a>`).join('')}</nav><a class="nv set" href="#/reglages" data-n="reglages" aria-label="Réglages" title="Réglages"><span class="chip" style="background:var(--soft)">${ico('cog')}</span><span class="lb">Réglages</span></a>`;
 $('#mtop').innerHTML=`<a class="logo" href="#/accueil" style="padding:0">${MARK}AUNE</a><a class="gear" href="#/reglages" aria-label="Réglages">${ico('cog')}</a>`;
 $('#bottom').innerHTML=NAV.map(([k,l,i,c])=>`<a href="#/${k}" data-n="${k}" style="--c:var(--${c})"><span class="ib">${ico(i)}</span><span>${l}</span></a>`).join('');
@@ -611,12 +681,12 @@ function route(){const p=(location.hash.replace(/^#\/?/,'')||'accueil').split('/
 let lastKey='';
 function render(){
   const r=route();
-  const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),reglages:vReglages};
+  const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),clients:()=>r.id?vClient(r):vClients(),reglages:vReglages};
   const key=r.name+'/'+(r.id||'');
   if(key!==lastKey){ui.q='';ui.opt=false}
   $('#main').innerHTML=(views[r.name]||vAccueil)();
   const on={chantier:'chantiers',planning:'chantiers'}[r.name]||r.name;
-  const sec={chantiers:'chantiers',chantier:'chantiers',planning:'chantiers',devis:'devis',factures:'factures'}[r.name];
+  const sec={chantiers:'chantiers',chantier:'chantiers',planning:'chantiers',devis:'devis',factures:'factures',clients:'clients'}[r.name];
   if(sec)document.body.dataset.sec=sec;else delete document.body.dataset.sec;
   document.querySelectorAll('[data-n]').forEach(a=>a.classList.toggle('on',a.dataset.n===on));
   const m=$('#main');
@@ -642,7 +712,7 @@ function chantierForm(c){
     {k:'phone',l:'Téléphone du client',t:'tel',more:1},{k:'status',l:'Statut',t:'select',o:STAT_C,more:1},
     {k:'start',l:'Début',t:'date',more:1},{k:'end',l:'Fin prévue',t:'date',more:1},
     {k:'budget',l:'Budget prévu (€ HT)',t:'number',more:1},{k:'notes',l:'Notes',t:'textarea',full:1,more:1}],c,
-    v=>{if(isNew){v.id=uid();db.chantiers.push(v);setTimeout(()=>go('chantier/'+v.id),0)}else Object.assign(c,v);save()},!isNew);
+    v=>{if(isNew){v.id=uid();db.chantiers.push(v);setTimeout(()=>go('chantier/'+v.id),0)}else Object.assign(c,v);if(v.client&&!findClient(v.client)){db.clients.push({id:uid(),name:v.client.trim(),type:'particulier',siren:'',address:'',phone:v.phone||'',email:'',notes:''})}save()},!isNew);
   if(!isNew){const b=document.createElement('button');b.type='button';b.className='btn danger';b.textContent='Supprimer';b.dataset.a='delChantier';b.dataset.id=c.id;$('#dlg .frow').prepend(b)}
 }
 function lotForm(l,cid){
@@ -655,10 +725,12 @@ function lotForm(l,cid){
     v=>{if(isNew){v.id=uid();v.chantierId=cid;db.lots.push(v)}else Object.assign(l,v);save()},!isNew);
   if(!isNew){const b=document.createElement('button');b.type='button';b.className='btn danger';b.textContent='Supprimer';b.dataset.a='delLot';b.dataset.id=l.id;$('#dlg .frow').prepend(b)}
 }
-function newDoc(type,cid){
+function newDoc(type,cid,cl){
   const s=db.settings,c=ch(cid),t=today();
   const d={id:uid(),type,number:nextNumber(type),chantierId:cid||'',clientName:c?c.client||'':'',clientAddress:c?c.address||'':'',date:t,due:addDays(t,30),
     tva:s.tvaMode==='franchise'?0:+s.tva,status:'brouillon',notes:'',paid:0,clientType:'particulier',clientSiren:'',nature:'services',tvaDebits:false,deliveryAddress:'',lines:[{desc:'',qty:1,unit:'u',pu:0}]};
+  if(cl)Object.assign(d,{clientId:cl.id,clientName:cl.name,clientAddress:cl.address||'',clientType:cl.type==='pro'?'pro':'particulier',clientSiren:cl.type==='pro'?cl.siren||'':''});
+  else if(c&&c.client){const k=findClient(c.client);if(k)Object.assign(d,{clientId:k.id,clientType:k.type==='pro'?'pro':'particulier',clientSiren:k.type==='pro'?k.siren||'':''})}
   db.docs.push(d);save();go((type==='devis'?'devis/':'factures/')+d.id);
 }
 
@@ -679,6 +751,7 @@ function printDoc(d){
   ${franchise?'<p>TVA non applicable, art. 293 B du CGI.</p>':''}
   ${(+d.tva)&&d.tvaDebits?'<p>Option pour le paiement de la TVA d\'après les débits.</p>':''}
   ${d.notes?`<p style="white-space:pre-wrap">${esc(d.notes)}</p>`:''}
+  ${insMention(s)?`<p style="font-size:11px">${esc(insMention(s))}</p>`:''}
   ${s.conditions?`<p style="font-size:11px">${esc(s.conditions)}</p>`:''}
   ${!isD&&s.iban?`<p><b>Règlement par virement</b> : IBAN ${esc(s.iban)}</p>`:''}
   ${isD?'<div class="sig">Bon pour accord — date et signature du client :</div>':''}</div>`;
@@ -717,7 +790,7 @@ function facturxXml(d){
   const siren=String(s.siret||'').replace(/\s/g,'').slice(0,9),siret=String(s.siret||'').replace(/\s/g,'');
   const reason=franchise?'TVA non applicable, art. 293 B du CGI':'';
   const nat={services:'Prestation de services',biens:'Livraison de biens',mixte:'Livraison de biens et prestation de services'}[d.nature||'services'];
-  const notes=[[`Nature de l'opération : ${nat}`],[(rate&&d.tvaDebits)?'Option pour le paiement de la TVA d\'après les débits.':''],[reason],[d.notes],[s.conditions===blank().settings.conditions?'':s.conditions],
+  const notes=[[`Nature de l'opération : ${nat}`],[(rate&&d.tvaDebits)?'Option pour le paiement de la TVA d\'après les débits.':''],[reason],[d.notes],[insMention(s)],[s.conditions===blank().settings.conditions?'':s.conditions],
     ['En cas de retard de paiement, pénalités de retard exigibles à 3 fois le taux d\'intérêt légal.','PMD'],['Indemnité forfaitaire pour frais de recouvrement en cas de retard de paiement : 40 €.','PMT'],['Pas d\'escompte pour paiement anticipé.','AAB']].filter(n=>n[0]);
   const taxRate=rate?`<ram:RateApplicablePercent>${amt(rate)}</ram:RateApplicablePercent>`:'';
   const lineTax=`<ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>${cat}</ram:CategoryCode>${taxRate}</ram:ApplicableTradeTax>`;
@@ -744,9 +817,10 @@ ${ls.map((x,i)=>`<ram:IncludedSupplyChainTradeLineItem><ram:AssociatedDocumentLi
 }
 function dupDoc(x){
   const t=today(),n=JSON.parse(JSON.stringify(x));
-  Object.assign(n,{id:uid(),number:nextNumber(x.type),date:t,due:addDays(t,30),status:'brouillon',paid:0});delete n.devisId;
+  Object.assign(n,{id:uid(),number:nextNumber(x.type),date:t,due:addDays(t,30),status:'brouillon',paid:0});delete n.devisId;delete n.acompte;
   db.docs.push(n);save();toast((x.type==='devis'?'Devis':'Facture')+' dupliqué(e) : '+n.number);go((x.type==='devis'?'devis/':'factures/')+n.id);
 }
+const insMention=s=>(s.insName&&s.insPolicy)?`${s.insKind||'Assurance'} : ${s.insName}${s.insAddr?' ('+s.insAddr+')':''}, contrat n° ${s.insPolicy}. Couverture géographique : ${s.insZone||'France métropolitaine'}.`:'';
 function pdfModel(d){
   const s=db.settings,c=ch(d.chantierId),franchise=s.tvaMode==='franchise'&&!(+d.tva),isD=d.type==='devis';
   const nat={services:'Prestation de services',biens:'Livraison de biens',mixte:'Livraison de biens et prestation de services'}[d.nature||'services'];
@@ -756,9 +830,9 @@ function pdfModel(d){
     client:{name:d.clientName,address:d.clientAddress,siren:d.clientType==='pro'?d.clientSiren:''},
     infos:[c?`Chantier : ${c.name}${c.address?' — '+c.address:''}`:'',`Nature de l'opération : ${nat}`,d.deliveryAddress?`Adresse de livraison : ${d.deliveryAddress}`:''].filter(Boolean),
     lines:d.lines.filter(l=>l.desc||l.pu).map(l=>({desc:l.desc||'',qty:q(l.qty),unit:l.unit||'',pu:eur(+l.pu),total:eur(r2((+l.qty||0)*(+l.pu||0)))})),
-    totals:[['Total HT',eur(ht(d))],[`TVA ${+d.tva||0} %`,eur(tva(d))],['Total TTC',eur(ttc(d)),1]].concat(!isD&&(+d.paid)?[['Déjà réglé',eur(+d.paid)],['Reste à payer',eur(reste(d)),1]]:[]),
+    totals:[['Total HT',eur(ht(d))],[`TVA ${+d.tva||0} %`,eur(tva(d))],['Total TTC',eur(ttc(d)),1]].concat(!isD&&(+d.paid)?[[d.devisId?'Acomptes déjà réglés':'Déjà réglé',eur(+d.paid)],['Reste à payer',eur(reste(d)),1]]:[]),
     mentions:[franchise?['TVA non applicable, art. 293 B du CGI.']:null,(+d.tva&&d.tvaDebits)?['Option pour le paiement de la TVA d\'après les débits.']:null,d.notes?[d.notes]:null,
-      s.conditions?[s.conditions,1]:null,(!isD&&s.iban)?['Règlement par virement : IBAN '+s.iban]:null].filter(Boolean),
+      insMention(s)?[insMention(s),1]:null,s.conditions?[s.conditions,1]:null,(!isD&&s.iban)?['Règlement par virement : IBAN '+s.iban]:null].filter(Boolean),
     signature:isD?'Bon pour accord — date et signature du client :':'',
     footer:(s.name?s.name+'  ·  ':'')+(isD?'Devis':'Facture')+(!isD&&d.clientType==='pro'?' électronique Factur-X':'')};
 }
@@ -789,7 +863,8 @@ async function docSend(d,plain){
       try{await navigator.share({files:[f],title:(isD?'Devis ':'Facture ')+d.number,text});
         if(d.status==='brouillon')actions.setStatus({id:d.id,v:isD?'envoyé':'envoyée'});}
       catch(e){if(e&&e.name!=='AbortError')dlFile(f)}
-    }else{dlFile(f);toast('PDF téléchargé : joignez-le à votre message')}
+    }else{dlFile(f);toast('PDF téléchargé : joignez-le à votre message');const cl=clientOf(d);
+      if(cl&&cl.email)setTimeout(()=>{location.href='mailto:'+cl.email.replace(/\s/g,'')+'?subject='+encodeURIComponent((isD?'Devis ':'Facture ')+d.number)+'&body='+encodeURIComponent(text)},600)}
   }finally{sendBusy=false}
 }
 function dlFile(f){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
@@ -800,7 +875,7 @@ function relanceText(d){
 }
 function relanceDlg(d){
   const dlg=$('#dlg');
-  dlg.innerHTML=`<div class="dform"><h2>Relancer ${esc(d.clientName||'le client')}</h2><label class="f">Message<textarea id="rlTxt" rows="9" style="width:100%;font-weight:400;color:var(--ink);font-size:15px;line-height:1.4">${esc(relanceText(d))}</textarea></label><div class="frow" style="flex-wrap:wrap"><button type="button" class="btn" data-a="closeDlg">Fermer</button><button type="button" class="btn" data-a="rlCopy">Copier</button><button type="button" class="btn primary" data-a="rlSend" data-id="${d.id}">Envoyer</button></div></div>`;
+  dlg.innerHTML=`<div class="dform"><h2>Relancer ${esc(d.clientName||'le client')}</h2><label class="f">Message<textarea id="rlTxt" rows="9" style="width:100%;font-weight:400;color:var(--ink);font-size:15px;line-height:1.4">${esc(relanceText(d))}</textarea></label><div class="frow" style="flex-wrap:wrap"><button type="button" class="btn" data-a="closeDlg">Fermer</button><button type="button" class="btn" data-a="rlCopy">Copier</button>${(clientOf(d)||{}).phone?`<button type="button" class="btn" data-a="rlSms" data-id="${d.id}">SMS</button>`:''}<button type="button" class="btn primary" data-a="rlSend" data-id="${d.id}">Envoyer</button></div></div>`;
   dlg.showModal();
 }
 
@@ -818,12 +893,15 @@ function demo(){
   mk('devis',c2,'envoyé',-9,[{desc:'Terrassement et fondations',qty:1,unit:'forfait',pu:4200},{desc:'Élévation des murs',qty:38,unit:'m²',pu:285}]);
   mk('facture',c1,'payée',-14,[{desc:'Acompte 30 % gros œuvre',qty:1,unit:'forfait',pu:4200}]);
   mk('facture',c1,'envoyée',-40,[{desc:'Études et préparation',qty:1,unit:'forfait',pu:1500}]);
-  save();
+  seedClients(db);save();
 }
 
 /* ============ Actions ============ */
 const actions={
   syLogin:()=>syLogin(),syNow:()=>syncNow(true),syOut:()=>syLogout(),syKeepLocal:()=>syResolve(true),syKeepOnline:()=>syResolve(false),
+  newClient:()=>clientForm(),editClient:d=>clientForm(clientById(d.id)),
+  delClient:d=>{if(confirm('Supprimer cette fiche client ? Les devis et factures sont conservés.')){db.clients=db.clients.filter(c=>c.id!==d.id);save();$('#dlg').close();go('clients')}},
+  newDocFor:d=>newDoc(d.type,'',clientById(d.id)),
   newChantier:()=>chantierForm(),editChantier:d=>chantierForm(ch(d.id)),
   delChantier:d=>{if(confirm('Supprimer ce chantier et ses corps de métier ? Les devis et factures sont conservés.')){db.lots=db.lots.filter(l=>l.chantierId!==d.id);db.docs.forEach(x=>{if(x.chantierId===d.id)x.chantierId=''});db.chantiers=db.chantiers.filter(c=>c.id!==d.id);save();$('#dlg').close();go('chantiers')}},
   newLot:d=>lotForm(null,d.id),editLot:d=>lotForm(lot(d.id)),
@@ -837,10 +915,19 @@ const actions={
   send:d=>docSend(doc(d.id)),sendPlain:d=>{$('#dlg').close();docSend(doc(d.id),true)},
   relance:d=>relanceDlg(doc(d.id)),
   rlCopy:()=>{const t=$('#rlTxt').value;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Message copié'),()=>{$('#rlTxt').select();toast('Sélectionnez et copiez le message')})},
-  rlSend:d=>{const t=$('#rlTxt').value,x=doc(d.id);if(navigator.share)navigator.share({title:'Facture '+x.number,text:t}).catch(()=>{});else location.href='mailto:?subject='+encodeURIComponent('Facture '+x.number+' : rappel')+'&body='+encodeURIComponent(t)},
+  rlSend:d=>{const t=$('#rlTxt').value,x=doc(d.id);if(navigator.share)navigator.share({title:'Facture '+x.number,text:t}).catch(()=>{});else location.href='mailto:'+(((clientOf(x)||{}).email)||'').replace(/\s/g,'')+'?subject='+encodeURIComponent('Facture '+x.number+' : rappel')+'&body='+encodeURIComponent(t)},
+  rlSms:d=>{const c=clientOf(doc(d.id));location.href='sms:'+String(c.phone).replace(/[^\d+]/g,'')+'?&body='+encodeURIComponent($('#rlTxt').value)},
   dupDoc:d=>dupDoc(doc(d.id)),undo:()=>restoreUndo(),
   setStatus:d=>{const x=doc(d.id);setField(x,'status',d.v);save();ui.flash='st';render()},
-  devis2fac:d=>{const q=doc(d.id),t=today();const f={id:uid(),type:'facture',number:nextNumber('facture'),chantierId:q.chantierId,clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:addDays(t,30),tva:q.tva,status:'brouillon',notes:'',paid:0,devisId:q.id,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',lines:q.lines.map(l=>({...l}))};db.docs.push(f);save();toast('Facture créée à partir du devis');go('factures/'+f.id)},
+  acompte:d=>{
+    const q=doc(d.id),pct=acomptePct(),t=today();
+    const f={id:uid(),type:'facture',number:nextNumber('facture'),chantierId:q.chantierId,clientId:q.clientId||'',clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:addDays(t,8),tva:q.tva,status:'brouillon',
+      notes:`Acompte de ${pct} % sur le devis ${q.number} du ${fdate(q.date)}.`,paid:0,devisId:q.id,acompte:true,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',
+      lines:[{desc:`Acompte ${pct} % sur devis ${q.number}`,qty:1,unit:'forfait',pu:r2(ht(q)*pct/100)}]};
+    db.docs.push(f);save();toast(`Facture d'acompte créée : ${eur(ttc(f))} TTC`);go('factures/'+f.id)},
+  devis2fac:d=>{const q=doc(d.id),t=today();const f={id:uid(),type:'facture',number:nextNumber('facture'),chantierId:q.chantierId,clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:addDays(t,30),tva:q.tva,status:'brouillon',notes:'',paid:0,clientId:q.clientId||'',devisId:q.id,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',lines:q.lines.map(l=>({...l}))};const ac=db.docs.filter(x=>x.devisId===q.id&&x.acompte&&x.status==='payée');
+    if(ac.length){f.paid=Math.min(ttc(f),r2(ac.reduce((a,x)=>a+ttc(x),0)));f.notes='Acomptes déjà réglés : '+ac.map(x=>x.number+' ('+eur(ttc(x))+')').join(', ')+'.'}
+    db.docs.push(f);save();toast('Facture créée à partir du devis');go('factures/'+f.id)},
   gprev:()=>{ui.goff--;render()},gnext:()=>{ui.goff++;render()},gtoday:()=>{ui.goff=0;render()},
   closeDlg:()=>$('#dlg').close(),
   demo:()=>{if(!db.chantiers.length||confirm('Ajouter des données d\'exemple à vos données actuelles ?')){demo();render();toast('Exemple chargé')}},
@@ -854,6 +941,7 @@ function setField(d,k,v){
   if(k==='tvaDebits')v=(v===true||v==='1');
   if(k==='clientSiren')v=String(v).replace(/\D/g,'').slice(0,9);
   d[k]=v;
+  if(k==='clientName'){const c=findClient(v);d.clientId=c?c.id:'';if(c){if(!d.clientAddress&&c.address)d.clientAddress=c.address;if(c.type==='pro'&&d.clientType!=='pro'){d.clientType='pro';d.clientSiren=c.siren||''}else if(c.type==='pro'&&!d.clientSiren)d.clientSiren=c.siren||''}}
   if(k==='clientName'&&v&&!d.clientSiren&&d.clientType!=='pro'){const o=db.docs.find(x=>x.id!==d.id&&x.clientName===v&&x.clientType==='pro');if(o){d.clientType='pro';d.clientSiren=o.clientSiren||''}}
   if(k==='status'&&v==='payée')d.paid=ttc(d);
   if(k==='chantierId'){const c=ch(v);if(c){if(!d.clientName)d.clientName=c.client||'';if(!d.clientAddress)d.clientAddress=c.address||''}}
@@ -861,6 +949,7 @@ function setField(d,k,v){
 }
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(t.dataset.b&&/^client(Name|Address|Siren|Type)$/.test(t.dataset.b))setTimeout(()=>learnClient(doc(t.dataset.id)),0);
   if(t.id==='gsel'){ui.gc=t.value;render();return}
   if(t.id==='file'){const f=t.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d||!d.v)throw 0;if(confirm('Remplacer vos données actuelles par ce fichier ?')){snapshot();db=normalize(d);save();go('accueil');toast('Données importées')}}catch(x){toast('Fichier non reconnu')}t.value=''};rd.readAsText(f);return}
   if(t.dataset.l==='desc'){ // prestation connue : reprend unité et prix
@@ -885,7 +974,7 @@ document.addEventListener('change',e=>{
 });
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.dataset.q){ui.q=t.value;$('#list').innerHTML=t.dataset.q==='chantiers'?listChantiers():listDocs(t.dataset.q);return}
+  if(t.dataset.q){ui.q=t.value;$('#list').innerHTML=t.dataset.q==='chantiers'?listChantiers():t.dataset.q==='clients'?listClients():listDocs(t.dataset.q);return}
   if(t.dataset.l!==undefined){const d=doc(t.dataset.id),l=d.lines[+t.dataset.i],k=t.dataset.l;l[k]=(k==='qty'||k==='pu')?(parseFloat(t.value)||0):t.value;save();$('#lt_'+t.dataset.i).textContent=eur((+l.qty||0)*(+l.pu||0));$('#tot').innerHTML=totalsHtml(d);return}
   if(t.dataset.b!==undefined&&t.tagName!=='SELECT'){const d=doc(t.dataset.id);setField(d,t.dataset.b,t.value);save();if(t.dataset.b==='paid')$('#tot').innerHTML=totalsHtml(d);if(t.dataset.b==='clientSiren')$('#warn').innerHTML=warnHtml(d);return}
   if(t.dataset.s!==undefined&&t.tagName!=='SELECT'){db.settings[t.dataset.s]=t.value;save()}
