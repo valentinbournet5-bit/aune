@@ -1,4 +1,4 @@
-AUNE v3.7 - suivi de chantier (PC + téléphone)
+AUNE v3.8 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -37,3 +37,11 @@ Chiffre d'affaires (v3.7) : page Factures > tuile « CA <année> » : encaissé 
 de la micro-entreprise, cotisations estimées (taux facultatif), export CSV du livre des recettes (date d'encaissement =
 « Payée le », sinon date de la facture ; les acomptes ne sont pas comptés deux fois). Plafond et taux modifiables dans
 Réglages > Plus de réglages : à vérifier chaque année (service-public.fr, urssaf).
+
+Avoirs et verrouillage (v3.8) :
+- Une facture émise (envoyée ou payée) n'est plus modifiable ni supprimable : seuls les règlements (« Déjà réglé »,
+  « Payée le ») restent saisissables. Pour la corriger : bouton « Créer un avoir ».
+- Avoir : numérotation séparée (AV-AAAA-001, préfixe réglable), lignes à montants négatifs, partiel possible en modifiant
+  les lignes, émission puis verrouillage. Une fois émis, il réduit ce que le client doit (facture « annulée » si
+  totalement couverte) et, si la facture était payée, le chiffre d'affaires. Factur-X : type 381 avec référence à la facture.
+- Suppression d'un brouillon qui crée un trou dans la numérotation : avertissement.
