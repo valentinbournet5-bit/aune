@@ -83,7 +83,8 @@ async function applySubscription(env, sub, now) {
   let row = sub.customer ? await env.DB.prepare('SELECT email FROM accounts WHERE stripe_customer=?').bind(sub.customer).first() : null;
   const email = row ? row.email : String(sub.metadata && sub.metadata.email || '').toLowerCase();
   if (!email) return;
-  await account(env, email, now);
+  // Un événement Stripe tardif ne doit pas recréer un compte supprimé.
+  if (!(await env.DB.prepare('SELECT 1 x FROM accounts WHERE email=?').bind(email).first())) return;
   await env.DB.prepare('UPDATE accounts SET stripe_customer=COALESCE(?,stripe_customer), stripe_sub=?, sub_status=?, sub_end=?, interval=?, cancel=? WHERE email=?')
     .bind(sub.customer || null, sub.id, sub.status === 'canceled' ? 'canceled' : sub.status, end ? end * 1000 : null, interval, (sub.cancel_at_period_end || (sub.cancel_at && sub.cancel_at * 1000 > now) || (sub.cancellation_details && sub.cancellation_details.reason === 'cancellation_requested' && sub.status !== 'canceled')) ? 1 : 0, email).run();
 }
@@ -178,6 +179,21 @@ export default {
       const r = await stripe(env, '/v1/billing_portal/sessions', new URLSearchParams({ customer: a.stripe_customer, return_url: env.APP_URL.replace(/#.*$/, '') + '#/reglages' }));
       if (!r.ok || !r.j.url) return json(env, req, { error: 'paiement' }, 502);
       return json(env, req, { url: r.j.url });
+    }
+
+    // Droit à l'effacement : supprime le compte et toutes les données en ligne (les données locales de l'appareil restent).
+    // Un abonnement en cours (non résilié) doit d'abord être résilié pour ne pas continuer à être facturé.
+    if (path === '/api/account/delete' && req.method === 'POST') {
+      const a = await account(env, email, now);
+      const live = a.stripe_sub && ['active', 'trialing', 'past_due'].includes(a.sub_status) && (!a.sub_end || a.sub_end > now);
+      if (live && !a.cancel) return json(env, req, { error: 'abonnement' }, 409);
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM data WHERE email=?').bind(email),
+        env.DB.prepare('DELETE FROM sessions WHERE email=?').bind(email),
+        env.DB.prepare('DELETE FROM magic WHERE email=?').bind(email),
+        env.DB.prepare('DELETE FROM accounts WHERE email=?').bind(email)
+      ]);
+      return json(env, req, { ok: true });
     }
 
     // 3. Données : un seul document par compte, avec numéro de révision.

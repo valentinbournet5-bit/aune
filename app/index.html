@@ -651,7 +651,8 @@ function vReglages(){
   <a href="https://www.impots.gouv.fr/professionnel/questions/partir-de-quand-suis-je-concerne-par-la-reforme-de-la-facturation" target="_blank" rel="noopener"><u>Voir le calendrier officiel (impots.gouv.fr)</u></a></div>
   ${syCard()}
   <div class="card"><h2 style="margin-bottom:6px">Sauvegarde de mes données</h2><p class="muted" style="margin-top:0">${API?'Exportez de temps en temps un fichier : c\'est votre copie de secours.':'Vos données restent sur cet appareil. Exportez un fichier pour les sauvegarder ou les copier sur un autre appareil.'}</p>
-  <div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</div></div></div></div>`;
+  <div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</div></div>
+  <p class="s" style="text-align:center;margin:6px 0 0"><a href="../mentions-legales.html"><u>Mentions légales</u></a> · <a href="../cgu.html"><u>Conditions</u></a> · <a href="../confidentialite.html"><u>Confidentialité</u></a> · <a href="../"><u>Site AUNE</u></a></p></div></div>`;
 }
 
 /* ============ Chiffre d'affaires et livre des recettes ============ */
@@ -963,7 +964,7 @@ function demo(){
 /* ============ Actions ============ */
 const actions={
   subscribe:d=>checkout(d.interval),portal:()=>portal(),
-  syLogin:()=>syLogin(),syNow:()=>syncNow(true),syOut:()=>syLogout(),syKeepLocal:()=>syResolve(true),syKeepOnline:()=>syResolve(false),
+  syDelete:()=>syDelete(),syLogin:()=>syLogin(),syNow:()=>syncNow(true),syOut:()=>syLogout(),syKeepLocal:()=>syResolve(true),syKeepOnline:()=>syResolve(false),
   caDlg:()=>isPro()?caDialog(new Date().getFullYear()):proDlg('Suivi du chiffre d\'affaires'),caCsv:d=>{if(!isPro())return proDlg('Livre des recettes');const f=new File([recettesCsv(+d.year)],'aune-livre-des-recettes-'+d.year+'.csv',{type:'text/csv'});dlFile(f);toast('Livre des recettes téléchargé')},
   newClient:()=>clientForm(),editClient:d=>clientForm(clientById(d.id)),
   delClient:d=>{if(confirm('Supprimer cette fiche client ? Les devis et factures sont conservés.')){db.clients=db.clients.filter(c=>c.id!==d.id);save();$('#dlg').close();go('clients')}},
@@ -1148,7 +1149,7 @@ async function checkAbo(){
 function syPaint(){const e=$('#syst');if(e)e.textContent=syState()}
 function syCard(){
   if(!API)return '';
-  if(sy.s)return `<div class="card"><h2 style="margin-bottom:6px">Mon compte</h2><p class="muted" style="margin-top:0">Connecté : <b>${esc(sy.e)}</b><br><span id="syst">${esc(syState())}</span></p>${planBlock()}<div class="actions"><button class="btn" data-a="syNow">Synchroniser maintenant</button><button class="btn" data-a="syOut">Se déconnecter</button></div></div>`;
+  if(sy.s)return `<div class="card"><h2 style="margin-bottom:6px">Mon compte</h2><p class="muted" style="margin-top:0">Connecté : <b>${esc(sy.e)}</b><br><span id="syst">${esc(syState())}</span></p>${planBlock()}<div class="actions"><button class="btn" data-a="syNow">Synchroniser maintenant</button><button class="btn" data-a="syOut">Se déconnecter</button></div><p class="s" style="margin:12px 0 0"><button class="btn link" data-a="syDelete" style="color:var(--coral-d);min-height:0;padding:0">Supprimer mon compte et mes données en ligne</button></p></div>`;
   return `<div class="card"><h2 style="margin-bottom:6px">Essayer Pro gratuitement</h2><p class="muted" style="margin-top:0">30 jours offerts, sans carte bancaire : synchronisation sur tous vos appareils, facture électronique Factur-X, suivi du chiffre d'affaires. Entrez votre e-mail : vous recevez un lien de connexion, sans mot de passe.</p><div class="fgrid"><label class="f full">E-mail<input type="email" id="syEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label></div><div class="actions"><button class="btn primary" data-a="syLogin">Recevoir mon lien</button></div><p class="s" style="margin:10px 0 0">Sans compte, l'appli reste entièrement utilisable et gratuite sur cet appareil.</p></div>`;
 }
 async function syApi(path,method,body){
@@ -1212,6 +1213,14 @@ async function syLogin(){
 async function syLogout(){
   try{await syApi('/api/logout','POST')}catch(e){}
   sy={};syKeep();toast('Déconnecté. Vos données restent sur cet appareil');render();
+}
+async function syDelete(){
+  if(!confirm('Supprimer définitivement votre compte et toutes vos données en ligne ? Vos données restent sur cet appareil, mais ne seront plus synchronisées. Cette action est irréversible.'))return;
+  try{const {status}=await syApi('/api/account/delete','POST',{});
+    if(status===200){sy={};syKeep();toast('Compte supprimé. Vos données restent sur cet appareil');render()}
+    else if(status===409)toast('Résiliez d\'abord votre abonnement (Gérer mon abonnement), puis supprimez le compte');
+    else toast('Suppression impossible pour le moment')}
+  catch(e){toast('Pas de réseau pour le moment')}
 }
 async function checkLink(){
   const r=route();if(r.name!=='connexion'||!r.id||!API)return;

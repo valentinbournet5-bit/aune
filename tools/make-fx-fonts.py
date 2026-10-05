@@ -27,5 +27,5 @@ for style in ('Regular', 'Bold'):
 icc = base64.b64encode(open(sys.argv[1], 'rb').read()).decode()
 js = ('/* Généré par tools/make-fx-fonts.py. Polices : Liberation Sans (SIL OFL 1.1). Profil sRGB : littleCMS / Kai-Uwe Behrmann (licence zlib/libpng). */\n'
       'window.FX_FONTS=%s;\nwindow.FX_ICC="%s";\n') % (json.dumps(out, separators=(',', ':')), icc)
-open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'fx-fonts.js'), 'w').write(js)
+open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'app', 'fx-fonts.js'), 'w').write(js)
 print('fx-fonts.js', len(js), 'octets')
