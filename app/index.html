@@ -164,14 +164,14 @@ dialog::backdrop{background:rgba(35,39,51,.45)}
 .e-info{grid-area:info}.e-lines{grid-area:lines;container-type:inline-size}
 @container (max-width:560px){
   .line{grid-template-columns:1fr 1fr 1fr}
-  .line .lt{grid-column:1/3;text-align:left}
+  .line .ltot{grid-column:1/3}
   .line .icon-btn{justify-self:end}
 }.e-side{grid-area:side;position:sticky;top:24px}.e-opts{grid-area:opts}
 .line{display:grid;grid-template-columns:80px 92px 120px minmax(0,1fr) 40px;gap:10px;align-items:end;padding:14px;border-radius:16px;background:var(--bg);margin-bottom:10px}
 .line>*{min-width:0}
 .line .desc{grid-column:1/-1;background:#fff}
-.line .lt{white-space:nowrap;text-align:right;align-self:center;font-weight:750;font-size:17px;font-variant-numeric:tabular-nums}
-.line .icon-btn{align-self:center}
+.line .ltot input{font-weight:750}
+.line .icon-btn{align-self:end;height:46px}
 .mini{display:grid;gap:3px;font-size:12.5px;color:var(--muted);font-weight:600}
 .mini input{background:#fff}
 .row .rside{display:grid;justify-items:end;gap:4px}
@@ -237,7 +237,7 @@ body:not([data-sec]) .sumcard,body[data-sec=chantiers] .sumcard{background:#fff;
   .kpis.three{grid-template-columns:1fr}
   .fgrid{grid-template-columns:1fr}
   .line{grid-template-columns:1fr 1fr 1fr;padding:12px}
-  .line .lt{grid-column:1/3;text-align:left}
+  .line .ltot{grid-column:1/3}
   .line .icon-btn{justify-self:end}
   .row{flex-wrap:wrap}
   .racts{flex:0 0 100%;justify-content:flex-end}
@@ -532,11 +532,12 @@ function vDocs(type,r){
   `<div id="list">${listDocs(type)}</div>`;
 }
 
+const lineTot=l=>Math.round((+l.qty||0)*(+l.pu||0)*100)/100;
 const lineRow=(d,l,i)=>`<div class="line"><input class="desc" list="dl_desc" data-l="desc" data-i="${i}" data-id="${d.id}" placeholder="Prestation (ex. Pose de carrelage)" value="${esc(l.desc)}" aria-label="Prestation">
 <label class="mini">Qté<input data-l="qty" data-i="${i}" data-id="${d.id}" type="number" step="any" inputmode="decimal" placeholder="1" value="${l.qty}"></label>
 <label class="mini">Unité<input data-l="unit" data-i="${i}" data-id="${d.id}" placeholder="m², u…" value="${esc(l.unit)}"></label>
 <label class="mini">Prix HT<input data-l="pu" data-i="${i}" data-id="${d.id}" type="number" step="any" inputmode="decimal" placeholder="0" value="${l.pu||''}"></label>
-<span class="lt" id="lt_${i}">${eur((+l.qty||0)*(+l.pu||0))}</span><button class="icon-btn" data-a="delLine" data-id="${d.id}" data-i="${i}" aria-label="Supprimer la ligne">×</button></div>`;
+<label class="mini ltot">Total HT<input id="lt_${i}" data-l="tot" data-i="${i}" data-id="${d.id}" type="number" step="any" inputmode="decimal" placeholder="0" value="${lineTot(l)||''}"></label><button class="icon-btn" data-a="delLine" data-id="${d.id}" data-i="${i}" aria-label="Supprimer la ligne">×</button></div>`;
 function totalsHtml(d){
   return `<div><span>Total HT</span><span>${eur(ht(d))}</span></div>`+((+d.tva)?`<div><span>TVA ${+d.tva} %</span><span>${eur(tva(d))}</span></div>`:'<div class="muted small"><span>TVA non applicable</span><span></span></div>')+
   `<div class="big"><span>${(+d.tva)?'Total TTC':'Total'}</span><span>${eur(ttc(d))}</span></div>`+
@@ -1030,7 +1031,7 @@ document.addEventListener('change',e=>{
   if(t.id==='gsel'){ui.gc=t.value;render();return}
   if(t.id==='caYear'){caDialog(+t.value);return}
   if(t.id==='file'){const f=t.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d||!d.v)throw 0;if(confirm('Remplacer vos données actuelles par ce fichier ?')){snapshot();db=normalize(d);save();go('accueil');toast('Données importées')}}catch(x){toast('Fichier non reconnu')}t.value=''};rd.readAsText(f);return}
-  if(t.dataset.l==='pu'||t.dataset.l==='qty'){ // avoir : quantités positives, prix négatifs
+  if(t.dataset.l==='pu'||t.dataset.l==='qty'||t.dataset.l==='tot'){ // avoir : quantités positives, prix négatifs
     const d=doc(t.dataset.id);if(d&&d.avoir&&!isLocked(d)){const l=d.lines[+t.dataset.i];l.qty=Math.abs(+l.qty||0);l.pu=-Math.abs(+l.pu||0);save();render()}return}
   if(t.dataset.l==='desc'){ // prestation connue : reprend unité et prix
     if(isLocked(doc(t.dataset.id)))return;
@@ -1056,7 +1057,11 @@ document.addEventListener('change',e=>{
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.q){ui.q=t.value;$('#list').innerHTML=t.dataset.q==='chantiers'?listChantiers():t.dataset.q==='clients'?listClients():listDocs(t.dataset.q);return}
-  if(t.dataset.l!==undefined){const d=doc(t.dataset.id),l=d.lines[+t.dataset.i],k=t.dataset.l;if(isLocked(d))return;l[k]=(k==='qty'||k==='pu')?(parseFloat(t.value)||0):t.value;save();$('#lt_'+t.dataset.i).textContent=eur((+l.qty||0)*(+l.pu||0));$('#tot').innerHTML=totalsHtml(d);return}
+  if(t.dataset.l!==undefined){const d=doc(t.dataset.id),l=d.lines[+t.dataset.i],k=t.dataset.l;if(isLocked(d))return;if(k==='tot'){ // total de ligne saisi : on en déduit le prix unitaire
+    const v=parseFloat(t.value)||0;if(!(+l.qty)){l.qty=1;const q=$('[data-l=qty][data-i="'+t.dataset.i+'"]');if(q)q.value=1}
+    l.pu=Math.round(v/l.qty*1e4)/1e4;const pu=$('[data-l=pu][data-i="'+t.dataset.i+'"]');if(pu)pu.value=l.pu||'';
+    save();$('#tot').innerHTML=totalsHtml(d);return}
+  l[k]=(k==='qty'||k==='pu')?(parseFloat(t.value)||0):t.value;save();if(k==='qty'||k==='pu'){const lt=$('#lt_'+t.dataset.i);if(lt)lt.value=lineTot(l)||''}$('#tot').innerHTML=totalsHtml(d);return}
   if(t.dataset.b!==undefined&&t.tagName!=='SELECT'){const d=doc(t.dataset.id);setField(d,t.dataset.b,t.value);save();if(t.dataset.b==='paid')$('#tot').innerHTML=totalsHtml(d);if(t.dataset.b==='clientSiren')$('#warn').innerHTML=warnHtml(d);return}
   if(t.dataset.s!==undefined&&t.tagName!=='SELECT'){db.settings[t.dataset.s]=t.value;save()}
 });
