@@ -10,3 +10,8 @@ CREATE INDEX IF NOT EXISTS sessions_email ON sessions(email);
 CREATE TABLE IF NOT EXISTS data (
   email TEXT PRIMARY KEY, rev INTEGER NOT NULL, json TEXT NOT NULL, backup TEXT, updated INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS accounts (
+  email TEXT PRIMARY KEY, created INTEGER NOT NULL, trial_end INTEGER NOT NULL,
+  stripe_customer TEXT, stripe_sub TEXT, sub_status TEXT, sub_end INTEGER, interval TEXT, cancel INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS accounts_customer ON accounts(stripe_customer);

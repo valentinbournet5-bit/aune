@@ -5,6 +5,9 @@ compatibility_date = "2025-01-01"
 [vars]
 # Adresse publique de l'appli (sert aux liens magiques et au CORS).
 APP_URL = "https://valentinbournet5-bit.github.io/aune/"
+# Prix Stripe (identifiants price_… des offres Pro mensuelle et annuelle).
+STRIPE_PRICE_MONTH = ""
+STRIPE_PRICE_YEAR = ""
 # Expéditeur des e-mails. Pour tester : onboarding@resend.dev (envoie seulement à votre propre e-mail Resend).
 # Pour de vrais utilisateurs : une adresse d'un domaine vérifié chez Resend.
 MAIL_FROM = "AUNE <onboarding@resend.dev>"

@@ -525,7 +525,7 @@ function vDocs(type,r){
   const all=db.docs.filter(d=>d.type===type),sum=f=>eur(all.filter(f).reduce((s,d)=>s+(type==='facture'?reste(d):ttc(d)),0));
   const k=type==='devis'
     ?kpi('sky','En attente de réponse',sum(d=>d.status==='envoyé'))+kpi('mint','Acceptés',sum(d=>d.status==='accepté'))+kpi('lemon','Brouillons',all.filter(d=>d.status==='brouillon').length)
-    :kpi('mint','À encaisser',sum(d=>d.status==='envoyée'))+kpi('coral','En retard',sum(isLate))+`<button class="kpi lilac kpibtn" data-a="caDlg"><span>CA ${new Date().getFullYear()} · voir le détail</span><b>${eur(caTotal(new Date().getFullYear()))}</b></button>`;
+    :kpi('mint','À encaisser',sum(d=>d.status==='envoyée'))+kpi('coral','En retard',sum(isLate))+(isPro()?`<button class="kpi lilac kpibtn" data-a="caDlg"><span>CA ${new Date().getFullYear()} · voir le détail</span><b>${eur(caTotal(new Date().getFullYear()))}</b></button>`:`<button class="kpi lilac kpibtn" data-a="caDlg"><span>Suivi du chiffre d'affaires</span><b style="font-size:17px">Fonction Pro</b></button>`);
   return head(type==='devis'?'Devis':'Factures','',`<button class="btn primary" data-a="newDoc" data-type="${type}">+ ${type==='devis'?'Devis':'Facture'}</button>`)+
   (all.length?`<div class="kpis three">${k}</div>`:'')+
   (all.length>4?`<input class="search" type="search" placeholder="Rechercher un client ou un numéro" data-q="${type}" value="${esc(ui.q)}">`:'')+
@@ -742,7 +742,7 @@ function route(){const p=(location.hash.replace(/^#\/?/,'')||'accueil').split('/
 let lastKey='';
 function render(){
   const r=route();
-  const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),clients:()=>r.id?vClient(r):vClients(),reglages:vReglages};
+  const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),abonnement:vReglages,clients:()=>r.id?vClient(r):vClients(),reglages:vReglages};
   const key=r.name+'/'+(r.id||'');
   if(key!==lastKey){ui.q='';ui.opt=false}
   $('#main').innerHTML=(views[r.name]||vAccueil)();
@@ -763,7 +763,7 @@ function render(){
 }
 const go=h=>{if(location.hash==='#/'+h)render();else location.hash='#/'+h};
 window.addEventListener('hashchange',render);
-window.addEventListener('hashchange',()=>checkLink());
+window.addEventListener('hashchange',()=>{checkLink();checkAbo()});
 $('#main').addEventListener('animationend',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('enter')});
 
 /* ============ Formulaires métier ============ */
@@ -883,7 +883,7 @@ function dupDoc(x){
   db.docs.push(n);save();toast(docLabel(x)+' dupliqué(e) : '+n.number);go((x.type==='devis'?'devis/':'factures/')+n.id);
 }
 const insMention=s=>(s.insName&&s.insPolicy)?`${s.insKind||'Assurance'} : ${s.insName}${s.insAddr?' ('+s.insAddr+')':''}, contrat n° ${s.insPolicy}. Couverture géographique : ${s.insZone||'France métropolitaine'}.`:'';
-function pdfModel(d){
+function pdfModel(d,fx){
   const s=db.settings,c=ch(d.chantierId),franchise=s.tvaMode==='franchise'&&!(+d.tva),isD=d.type==='devis';
   const nat={services:'Prestation de services',biens:'Livraison de biens',mixte:'Livraison de biens et prestation de services'}[d.nature||'services'];
   const q=n=>String(+n||0).replace('.',',');
@@ -896,7 +896,7 @@ function pdfModel(d){
     mentions:[franchise?['TVA non applicable, art. 293 B du CGI.']:null,(+d.tva&&d.tvaDebits)?['Option pour le paiement de la TVA d\'après les débits.']:null,d.notes?[d.notes]:null,
       insMention(s)?[insMention(s),1]:null,(!d.avoir&&s.conditions)?[s.conditions,1]:null,(!isD&&!d.avoir&&s.iban)?['Règlement par virement : IBAN '+s.iban]:null].filter(Boolean),
     signature:isD?'Bon pour accord — date et signature du client :':'',
-    footer:(s.name?s.name+'  ·  ':'')+docLabel(d)+(!isD&&d.clientType==='pro'?' électronique Factur-X':'')};
+    footer:(s.name?s.name+'  ·  ':'')+docLabel(d)+(fx?' électronique Factur-X':'')};
 }
 const needFx=d=>d.type==='facture'&&d.clientType==='pro';
 function missingDlg(miss,d){
@@ -906,13 +906,14 @@ function missingDlg(miss,d){
 }
 const loadJs=src=>new Promise((ok,ko)=>{const e=document.createElement('script');e.src=src;e.onload=ok;e.onerror=()=>ko(new Error(src));document.head.appendChild(e)});
 const canShareFiles=()=>{try{return !!(navigator.canShare&&navigator.canShare({files:[new File(['x'],'a.pdf',{type:'application/pdf'})]}))}catch(e){return false}};
-let sendBusy=false;
+let sendBusy=false,fxTip=false,fxTipShown=false;
 /* PDF de qualité (polices intégrées, PDF/A-3). Facture pro : Factur-X (XML embarqué). Renvoie null si des infos manquent. */
 async function pdfFile(d,plain){
-  const fx=needFx(d)&&!plain;
+  const fx=needFx(d)&&!plain&&isPro();
+  fxTip=needFx(d)&&!plain&&!isPro();
   if(fx){const miss=facturxCheck(d);if(miss.length){missingDlg(miss,d);return null}}
   if(!window.FXPDF){await loadJs('fx-fonts.js');await loadJs('fx-pdf.js')}
-  const bytes=await FXPDF.build(pdfModel(d),fx?facturxXml(d):null);
+  const bytes=await FXPDF.build(pdfModel(d,fx),fx?facturxXml(d):null);
   return new File([bytes],String(d.number).replace(/[^\w.-]+/g,'_')+(fx?'-factur-x':'')+'.pdf',{type:'application/pdf'});
 }
 async function docSend(d,plain){
@@ -927,6 +928,7 @@ async function docSend(d,plain){
       catch(e){if(e&&e.name!=='AbortError')dlFile(f)}
     }else{dlFile(f);toast('PDF téléchargé : joignez-le à votre message');const cl=clientOf(d);
       if(cl&&cl.email)setTimeout(()=>{location.href='mailto:'+cl.email.replace(/\s/g,'')+'?subject='+encodeURIComponent(docLabel(d)+' '+d.number)+'&body='+encodeURIComponent(text)},600)}
+    if(fxTip&&!fxTipShown){fxTipShown=true;setTimeout(()=>toast('Facture électronique Factur-X : fonction Pro (30 jours d\'essai offerts)'),2800)}
   }finally{sendBusy=false}
 }
 function dlFile(f){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
@@ -960,8 +962,9 @@ function demo(){
 
 /* ============ Actions ============ */
 const actions={
+  subscribe:d=>checkout(d.interval),portal:()=>portal(),
   syLogin:()=>syLogin(),syNow:()=>syncNow(true),syOut:()=>syLogout(),syKeepLocal:()=>syResolve(true),syKeepOnline:()=>syResolve(false),
-  caDlg:()=>caDialog(new Date().getFullYear()),caCsv:d=>{const f=new File([recettesCsv(+d.year)],'aune-livre-des-recettes-'+d.year+'.csv',{type:'text/csv'});dlFile(f);toast('Livre des recettes téléchargé')},
+  caDlg:()=>isPro()?caDialog(new Date().getFullYear()):proDlg('Suivi du chiffre d\'affaires'),caCsv:d=>{if(!isPro())return proDlg('Livre des recettes');const f=new File([recettesCsv(+d.year)],'aune-livre-des-recettes-'+d.year+'.csv',{type:'text/csv'});dlFile(f);toast('Livre des recettes téléchargé')},
   newClient:()=>clientForm(),editClient:d=>clientForm(clientById(d.id)),
   delClient:d=>{if(confirm('Supprimer cette fiche client ? Les devis et factures sont conservés.')){db.clients=db.clients.filter(c=>c.id!==d.id);save();$('#dlg').close();go('clients')}},
   newDocFor:d=>newDoc(d.type,'',clientById(d.id)),
@@ -1094,14 +1097,57 @@ function syState(){
   if(!sy.s)return '';
   if(syPending)return 'Choix nécessaire : voir ci-dessous';
   if(syBusy)return 'Synchronisation…';
+  if(sy.dirty&&sy.me&&!isPro())return 'En pause : la synchronisation fait partie de la formule Pro';
   if(sy.dirty)return navigator.onLine===false?'Hors ligne : sera envoyé dès le retour du réseau':'En attente d\'envoi';
   return sy.at?'Synchronisé '+ago(sy.at):'Pas encore synchronisé';
+}
+/* ----- Formules : gratuit (appli locale) et Pro (synchro, Factur-X, suivi du CA) ----- */
+const isPro=()=>{if(!API)return true;const m=sy.s&&sy.me;if(!m)return false;if(m.legacy)return true;return m.plan==='pro'&&(!m.until||m.until>Date.now())};
+const daysLeft=t=>Math.max(0,Math.ceil((t-Date.now())/864e5));
+async function meRefresh(){
+  if(!API||!sy.s||navigator.onLine===false)return;
+  try{const was=isPro(),{status,j}=await syApi('/api/me','GET');
+    if(status===200){sy.me={...j,at:Date.now()};syKeep();if(!was&&isPro()&&sy.dirty)setTimeout(()=>syncNow(),0)} // passage en Pro : les données mises de côté partent
+    else if(status===404){sy.me={legacy:true,plan:'pro',at:Date.now()};syKeep()} // ancien serveur sans formules : tout reste ouvert
+  }catch(e){}
+}
+function planBlock(){
+  const m=sy.me;if(!m||m.legacy)return '';
+  const buy=m.canBuy?`<div class="actions"><button class="btn primary" data-a="subscribe" data-interval="month">S'abonner · 9 €/mois</button><button class="btn" data-a="subscribe" data-interval="year">90 €/an · 2 mois offerts</button></div>`:`<p class="s" style="margin:0 0 10px">Le paiement en ligne sera bientôt disponible.</p>`;
+  if(m.source==='subscription'&&isPro())return `<p style="margin:0 0 10px"><b>Formule Pro</b> (${m.interval==='year'?'annuelle':'mensuelle'}) · ${m.cancel?'se termine le ':'renouvelée le '}${fdate(new Date(m.until).toISOString().slice(0,10))}${m.status==='past_due'?' · <b style="color:var(--coral-d)">paiement en échec : mettez à jour votre carte</b>':''}</p>`+(m.hasCustomer?`<div class="actions"><button class="btn" data-a="portal">Gérer mon abonnement</button></div>`:'');
+  if(m.source==='trial'&&isPro())return `<p style="margin:0 0 10px"><b>Essai Pro</b> : encore ${daysLeft(m.until)} jour${daysLeft(m.until)>1?'s':''} offerts.</p>`+buy;
+  return `<p style="margin:0 0 10px"><b>Formule gratuite.</b> La synchronisation, la facture électronique Factur-X et le suivi du chiffre d'affaires font partie de Pro. Vos données restent toujours accessibles.</p>`+buy;
+}
+function proDlg(what){
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dform"><h2>${esc(what)} : fonction Pro</h2><ul style="margin:0 0 10px;padding-left:20px"><li>Synchronisation sur tous vos appareils</li><li>Facture électronique Factur-X (obligatoire en 2027 pour vos clients professionnels)</li><li>Suivi du chiffre d'affaires, plafond et livre des recettes</li></ul><p style="margin:0 0 12px"><b>9 €/mois</b> ou <b>90 €/an</b>. 30 jours d'essai offerts, sans carte bancaire.</p>`+
+  (sy.s?(sy.me&&sy.me.canBuy?`<div class="frow" style="flex-wrap:wrap"><button type="button" class="btn" data-a="closeDlg">Plus tard</button><button type="button" class="btn" data-a="subscribe" data-interval="year">90 €/an</button><button type="button" class="btn primary" data-a="subscribe" data-interval="month">9 €/mois</button></div>`:`<div class="frow"><button type="button" class="btn primary" data-a="closeDlg">Compris</button></div>`)
+   :`<label class="f"><span>Votre e-mail</span><input type="email" id="proEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label><div class="frow" style="flex-wrap:wrap"><button type="button" class="btn" data-a="closeDlg">Plus tard</button><button type="button" class="btn primary" data-a="syLogin">Essayer 30 jours gratuitement</button></div>`)+`</div>`;
+  dlg.showModal();
+}
+async function checkout(interval){
+  try{const {status,j}=await syApi('/api/checkout','POST',{interval});
+    if(status===200&&j.url)location.href=j.url;
+    else if(status===409){toast('Vous êtes déjà abonné');await meRefresh();render()}
+    else toast('Paiement indisponible pour le moment')}
+  catch(e){toast('Pas de réseau pour le moment')}
+}
+async function portal(){
+  try{const {status,j}=await syApi('/api/portal','POST',{});if(status===200&&j.url)location.href=j.url;else toast('Gestion de l\'abonnement indisponible pour le moment')}
+  catch(e){toast('Pas de réseau pour le moment')}
+}
+/* retour du paiement : on attend que Stripe ait confirmé l'abonnement */
+async function checkAbo(){
+  if(route().name!=='abonnement'||!API)return;
+  history.replaceState(null,'',location.pathname+location.search+'#/reglages');
+  for(let i=0;i<8;i++){await meRefresh();if(sy.me&&sy.me.source==='subscription')break;await new Promise(r=>setTimeout(r,2000))}
+  render();toast(sy.me&&sy.me.source==='subscription'?'Merci ! Votre abonnement Pro est actif':'Paiement en cours de validation…');
 }
 function syPaint(){const e=$('#syst');if(e)e.textContent=syState()}
 function syCard(){
   if(!API)return '';
-  if(sy.s)return `<div class="card"><h2 style="margin-bottom:6px">Synchronisation en ligne</h2><p class="muted" style="margin-top:0">Connecté : <b>${esc(sy.e)}</b><br><span id="syst">${esc(syState())}</span></p><div class="actions"><button class="btn primary" data-a="syNow">Synchroniser maintenant</button><button class="btn" data-a="syOut">Se déconnecter</button></div></div>`;
-  return `<div class="card"><h2 style="margin-bottom:6px">Retrouver mes données partout</h2><p class="muted" style="margin-top:0">Entrez votre e-mail : vous recevez un lien de connexion, sans mot de passe.</p><div class="fgrid"><label class="f full">E-mail<input type="email" id="syEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label></div><div class="actions"><button class="btn primary" data-a="syLogin">Recevoir mon lien</button></div></div>`;
+  if(sy.s)return `<div class="card"><h2 style="margin-bottom:6px">Mon compte</h2><p class="muted" style="margin-top:0">Connecté : <b>${esc(sy.e)}</b><br><span id="syst">${esc(syState())}</span></p>${planBlock()}<div class="actions"><button class="btn" data-a="syNow">Synchroniser maintenant</button><button class="btn" data-a="syOut">Se déconnecter</button></div></div>`;
+  return `<div class="card"><h2 style="margin-bottom:6px">Essayer Pro gratuitement</h2><p class="muted" style="margin-top:0">30 jours offerts, sans carte bancaire : synchronisation sur tous vos appareils, facture électronique Factur-X, suivi du chiffre d'affaires. Entrez votre e-mail : vous recevez un lien de connexion, sans mot de passe.</p><div class="fgrid"><label class="f full">E-mail<input type="email" id="syEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label></div><div class="actions"><button class="btn primary" data-a="syLogin">Recevoir mon lien</button></div><p class="s" style="margin:10px 0 0">Sans compte, l'appli reste entièrement utilisable et gratuite sur cet appareil.</p></div>`;
 }
 async function syApi(path,method,body){
   const r=await fetch(API+path,{method,headers:{'Content-Type':'application/json',...(sy.s?{Authorization:'Bearer '+sy.s}:{})},body:body?JSON.stringify(body):undefined});
@@ -1109,18 +1155,21 @@ async function syApi(path,method,body){
   if(r.status===401&&sy.s){sy={};syKeep();toast('Session expirée : reconnectez-vous');if(route().name==='reglages')render()}
   return{status:r.status,j};
 }
-function syncMark(){if(!API||!sy.s)return;syMut++;sy.dirty=true;syKeep();clearTimeout(syT);syT=setTimeout(()=>syncNow(),2000);syPaint()}
+function syncMark(){if(!API||!sy.s)return;syMut++;sy.dirty=true;syKeep();if(sy.me&&!isPro()){syPaint();return}clearTimeout(syT);syT=setTimeout(()=>syncNow(),2000);syPaint()}
 const adopt=(data,rev)=>{if(!isBlank(db))snapshot();db=normalize(data);try{localStorage.setItem(LS,JSON.stringify(db))}catch(e){}sy.rev=rev;sy.dirty=false;sy.at=Date.now();syKeep();render()};
 const busyUi=()=>{const d=$('#dlg');return (d&&d.open)||/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||'')};
 async function syncNow(manual){
   if(!API||!sy.s||syBusy||syPending)return;
   if(navigator.onLine===false){if(manual)toast('Pas de réseau pour le moment');return}
+  if(!sy.me||Date.now()-(sy.me.at||0)>60e3)await meRefresh();
+  if(sy.dirty&&sy.me&&!isPro()){syPaint();return} // formule gratuite : lecture seulement, jamais de blocage des données
   clearTimeout(syT);syBusy=true;syPaint();let again=false;
   try{
     if(sy.dirty){
       const mut=syMut,{status,j}=await syApi('/api/data','PUT',{rev:sy.rev||0,data:db});
       if(status===200){sy.rev=j.rev;sy.at=Date.now();if(mut===syMut)sy.dirty=false;else again=true;syKeep()}
       else if(status===409)syConflict(j);
+      else if(status===402){sy.me={...(sy.me||{}),plan:'free',until:0};syKeep();toast('La synchronisation fait partie de la formule Pro')}
       else if(manual||status===413)toast(status===413?'Données trop volumineuses pour la synchronisation':'Synchronisation impossible pour le moment');
     }else{
       const {status,j}=await syApi('/api/data','GET');
@@ -1150,11 +1199,11 @@ function syResolve(keepLocal){
   if(keepLocal){sy.rev=srv.rev;sy.dirty=true;syKeep();syncNow(true)}else adopt(srv.data,srv.rev);
 }
 async function syLogin(){
-  const el=$('#syEmail'),email=(el&&el.value||'').trim();
+  const el=$('#syEmail')||$('#proEmail'),email=(el&&el.value||'').trim();
   if(!/^\S+@\S+\.\S{2,}$/.test(email)){toast('Entrez une adresse e-mail valide');if(el)el.focus();return}
   try{
     const {status,j}=await syApi('/api/login','POST',{email});
-    if(status===200){toast('Lien envoyé : ouvrez votre e-mail');if(j.link)console.info('[test] '+j.link)}
+    if(status===200){if($('#proEmail'))$('#dlg').close();toast('Lien envoyé : ouvrez votre e-mail');if(j.link)console.info('[test] '+j.link)}
     else toast(status===429?'Trop de demandes : réessayez dans une heure':'Envoi impossible pour le moment');
   }catch(e){toast('Pas de réseau pour le moment')}
 }
@@ -1167,7 +1216,7 @@ async function checkLink(){
   const t=r.id;history.replaceState(null,'',location.pathname+location.search+'#/reglages');render();
   try{
     const {status,j}=await syApi('/api/verify','POST',{token:t});
-    if(status===200){sy={s:j.session,e:j.email,rev:0,dirty:!isBlank(db)};syKeep();toast('Connecté');render();syncNow()}
+    if(status===200){sy={s:j.session,e:j.email,rev:0,dirty:!isBlank(db)};syKeep();await meRefresh();toast('Connecté');render();syncNow()}
     else toast('Lien expiré ou déjà utilisé : demandez-en un nouveau')
   }catch(e){toast('Pas de réseau pour le moment')}
 }
@@ -1176,7 +1225,7 @@ window.addEventListener('online',()=>syncNow());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){syncNow()}else if(sy.dirty){clearTimeout(syT);syncNow()}});
 
 render();
-checkLink();syncNow();
+checkLink();checkAbo();syncNow();
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
 </body>
