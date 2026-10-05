@@ -27,3 +27,13 @@ Sur votre ordinateur, avec Node.js installé, dans le dossier `worker/` :
 - Le Worker ne répond au navigateur que depuis `APP_URL` (CORS).
 - Une copie de la version précédente est gardée à chaque mise à jour (colonne `backup`).
 - Ne jamais activer `DEV_ECHO` en production (il renvoie le lien dans la réponse).
+
+## Formules (gratuit / Pro) et paiement Stripe
+
+- Gratuit : appli locale, sans compte. Pro (9 €/mois ou 90 €/an) : synchronisation, Factur-X, suivi du CA.
+- Essai Pro de 30 jours à la création du compte. Les données ne sont jamais bloquées : un compte non Pro peut toujours les lire.
+- Mise à jour de la base (une seule fois) : exécuter `worker/schema.sql` dans la console D1 (la table `accounts` est ajoutée, le reste existe déjà).
+- Stripe : créer deux prix récurrents (9 €/mois et 90 €/an) ; variables `STRIPE_PRICE_MONTH` et `STRIPE_PRICE_YEAR` (texte) ;
+  secrets `STRIPE_SECRET_KEY` et `STRIPE_WEBHOOK_SECRET`. Webhook Stripe : `https://<worker>/api/stripe/webhook`,
+  événements `checkout.session.completed` et `customer.subscription.created / updated / deleted`.
+- Tester d'abord en mode test de Stripe (carte 4242 4242 4242 4242), puis passer en mode live.

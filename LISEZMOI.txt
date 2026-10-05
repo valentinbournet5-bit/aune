@@ -1,4 +1,4 @@
-AUNE v3.8 - suivi de chantier (PC + téléphone)
+AUNE v3.9 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -45,3 +45,6 @@ Avoirs et verrouillage (v3.8) :
   les lignes, émission puis verrouillage. Une fois émis, il réduit ce que le client doit (facture « annulée » si
   totalement couverte) et, si la facture était payée, le chiffre d'affaires. Factur-X : type 381 avec référence à la facture.
 - Suppression d'un brouillon qui crée un trou dans la numérotation : avertissement.
+
+Formules (v3.9) : gratuit (appli locale) et Pro (synchro, Factur-X, suivi du CA), essai de 30 jours, abonnement Stripe
+(9 €/mois ou 90 €/an). Voir worker/README.md pour la mise en route côté serveur.
