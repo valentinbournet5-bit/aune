@@ -763,7 +763,7 @@ function render(){
 }
 const go=h=>{if(location.hash==='#/'+h)render();else location.hash='#/'+h};
 window.addEventListener('hashchange',render);
-window.addEventListener('hashchange',()=>{checkLink();checkAbo()});
+window.addEventListener('hashchange',()=>{checkLink();checkAbo();if(route().name==='reglages'&&sy.s)meRefresh()});
 $('#main').addEventListener('animationend',e=>{if(e.target===e.currentTarget)e.currentTarget.classList.remove('enter')});
 
 /* ============ Formulaires métier ============ */
@@ -1107,7 +1107,9 @@ const daysLeft=t=>t>Date.now()?Math.max(1,Math.round((t-Date.now())/864e5)):0; /
 async function meRefresh(){
   if(!API||!sy.s||navigator.onLine===false)return;
   try{const was=isPro(),{status,j}=await syApi('/api/me','GET');
-    if(status===200){sy.me={...j,at:Date.now()};syKeep();if(!was&&isPro()&&sy.dirty)setTimeout(()=>syncNow(),0)} // passage en Pro : les données mises de côté partent
+    if(status===200){const old=JSON.stringify([sy.me&&sy.me.plan,sy.me&&sy.me.source,sy.me&&sy.me.until,sy.me&&sy.me.interval,sy.me&&sy.me.cancel,sy.me&&sy.me.status]);
+      sy.me={...j,at:Date.now()};syKeep();if(!was&&isPro()&&sy.dirty)setTimeout(()=>syncNow(),0); // passage en Pro : les données mises de côté partent
+      if(old!==JSON.stringify([j.plan,j.source,j.until,j.interval,j.cancel,j.status])&&route().name==='reglages'&&!busyUi())render()}
     else if(status===404){sy.me={legacy:true,plan:'pro',at:Date.now()};syKeep()} // ancien serveur sans formules : tout reste ouvert
   }catch(e){}
 }
@@ -1225,7 +1227,7 @@ window.addEventListener('online',()=>syncNow());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){syncNow()}else if(sy.dirty){clearTimeout(syT);syncNow()}});
 
 render();
-checkLink();checkAbo();syncNow();
+checkLink();checkAbo();syncNow();if(route().name==='reglages'&&sy.s)meRefresh();
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
 </body>

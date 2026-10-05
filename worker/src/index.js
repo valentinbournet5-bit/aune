@@ -85,7 +85,7 @@ async function applySubscription(env, sub, now) {
   if (!email) return;
   await account(env, email, now);
   await env.DB.prepare('UPDATE accounts SET stripe_customer=COALESCE(?,stripe_customer), stripe_sub=?, sub_status=?, sub_end=?, interval=?, cancel=? WHERE email=?')
-    .bind(sub.customer || null, sub.id, sub.status === 'canceled' ? 'canceled' : sub.status, end ? end * 1000 : null, interval, sub.cancel_at_period_end ? 1 : 0, email).run();
+    .bind(sub.customer || null, sub.id, sub.status === 'canceled' ? 'canceled' : sub.status, end ? end * 1000 : null, interval, (sub.cancel_at_period_end || (sub.cancel_at && sub.cancel_at * 1000 > now) || (sub.cancellation_details && sub.cancellation_details.reason === 'cancellation_requested' && sub.status !== 'canceled')) ? 1 : 0, email).run();
 }
 
 async function readJson(req) { try { return await req.json(); } catch { return null; } }
