@@ -83,6 +83,7 @@ main{padding:34px clamp(18px,4vw,52px) 90px;max-width:1220px;width:100%}
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
 .kpis.three{grid-template-columns:repeat(3,1fr);margin-bottom:22px}
 .kpi{border-radius:18px;padding:14px 16px;display:block}
+.kpibtn{border:0;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer}
 .kpi span{font-size:14px;opacity:.78}
 .kpi b{display:block;font-size:23px;margin-top:2px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .kpi.sky{background:var(--sky-s)}.kpi.mint{background:var(--mint-s)}.kpi.lilac{background:var(--lilac-s)}.kpi.coral{background:var(--coral-s)}.kpi.lemon{background:var(--lemon-s)}
@@ -343,7 +344,7 @@ const tone=s=>({'en cours':'info','à venir':'','terminé':'ok','en pause':'warn
 const pill=s=>`<span class="pill ${tone(s)}">${esc(s)}</span>`;
 const blank=()=>({v:1,chantiers:[],lots:[],tasks:[],docs:[],clients:[],settings:{
   name:'',legal:'',siret:'',vatId:'',address:'',email:'',phone:'',iban:'',tvaMode:'franchise',tva:20,
-  devisPrefix:'DEV',facturePrefix:'FAC',acomptePct:30,
+  devisPrefix:'DEV',facturePrefix:'FAC',acomptePct:30,plafondCA:83600,tauxCot:'',
   insKind:'Garantie décennale',insName:'',insAddr:'',insPolicy:'',insZone:'France métropolitaine',
   conditions:"Paiement à 30 jours. En cas de retard : pénalités à 3 fois le taux d'intérêt légal et indemnité forfaitaire de recouvrement de 40 €."}});
 const normalize=d=>{const b=blank();d.settings=Object.assign(b.settings,d.settings||{});['chantiers','lots','tasks','docs'].forEach(k=>d[k]=d[k]||[]);if(!d.clients){d.clients=[];seedClients(d)}return d};
@@ -515,7 +516,7 @@ function vDocs(type,r){
   const all=db.docs.filter(d=>d.type===type),sum=f=>eur(all.filter(f).reduce((s,d)=>s+(type==='facture'?reste(d):ttc(d)),0));
   const k=type==='devis'
     ?kpi('sky','En attente de réponse',sum(d=>d.status==='envoyé'))+kpi('mint','Acceptés',sum(d=>d.status==='accepté'))+kpi('lemon','Brouillons',all.filter(d=>d.status==='brouillon').length)
-    :kpi('mint','À encaisser',sum(d=>d.status==='envoyée'))+kpi('coral','En retard',sum(isLate))+kpi('lemon','Brouillons',all.filter(d=>d.status==='brouillon').length);
+    :kpi('mint','À encaisser',sum(d=>d.status==='envoyée'))+kpi('coral','En retard',sum(isLate))+`<button class="kpi lilac kpibtn" data-a="caDlg"><span>CA ${new Date().getFullYear()} · voir le détail</span><b>${eur(caTotal(new Date().getFullYear()))}</b></button>`;
   return head(type==='devis'?'Devis':'Factures','',`<button class="btn primary" data-a="newDoc" data-type="${type}">+ ${type==='devis'?'Devis':'Facture'}</button>`)+
   (all.length?`<div class="kpis three">${k}</div>`:'')+
   (all.length>4?`<input class="search" type="search" placeholder="Rechercher un client ou un numéro" data-q="${type}" value="${esc(ui.q)}">`:'')+
@@ -578,6 +579,7 @@ function vDocEdit(d){
     <label class="f">TVA<select data-b="tva" data-id="${d.id}">${[0,5.5,10,20].map(x=>`<option value="${x}" ${+d.tva===x?'selected':''}>${x===0?'Sans TVA':x+' %'}</option>`).join('')}</select></label>
     ${isD?`<label class="f">Statut<select data-b="status" data-id="${d.id}">${sts.map(s=>`<option ${s===d.status?'selected':''}>${s}</option>`).join('')}</select></label>`:
     `<label class="f">Déjà réglé (acompte)<input type="number" step="any" inputmode="decimal" data-b="paid" data-id="${d.id}" value="${+d.paid||''}"></label>`}
+    ${!isD&&d.status==='payée'?`<label class="f">Payée le<input type="date" data-b="paidAt" data-id="${d.id}" value="${esc(d.paidAt||d.date)}"></label>`:''}
     <label class="f full">Adresse du client<input type="text" data-b="clientAddress" data-id="${d.id}" value="${esc(d.clientAddress)}"></label>
     <label class="f">Nature de l'opération<select data-b="nature" data-id="${d.id}">${[['services','Prestation de services'],['biens','Livraison de biens'],['mixte','Biens et services']].map(([v,l])=>`<option value="${v}" ${(d.nature||'services')===v?'selected':''}>${l}</option>`).join('')}</select></label>
     <label class="f" id="debitsField" ${(+d.tva)?'':'hidden'}>TVA sur les débits<select data-b="tvaDebits" data-id="${d.id}"><option value="0" ${d.tvaDebits?'':'selected'}>Non</option><option value="1" ${d.tvaDebits?'selected':''}>Oui, option choisie</option></select></label>
@@ -625,7 +627,7 @@ function vReglages(){
     <p class="s full" style="margin:2px 0 -4px"><b>Entreprise</b></p>
     ${f('legal','Forme juridique (ex. EI, SARL)')}${f('iban','IBAN (affiché sur les factures)')}${f('vatId','N° de TVA intracommunautaire (si assujetti)')}
     <label class="f">Taux de TVA par défaut<select data-s="tva">${[5.5,10,20].map(x=>`<option value="${x}" ${+s.tva===x?'selected':''}>${x} %</option>`).join('')}</select></label><span></span>
-    ${f('acomptePct','Acompte proposé sur les devis (%)','number')}${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}
+    ${f('acomptePct','Acompte proposé sur les devis (%)','number')}${f('plafondCA','Plafond de chiffre d\'affaires micro (€)','number')}${f('tauxCot','Taux de cotisations (%, facultatif)','number')}<p class="s full" style="margin:-6px 0 0">Plafond et taux : à vérifier chaque année sur service-public.fr et autoentrepreneur.urssaf.fr.</p>${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}
     <label class="f full">Conditions de paiement<textarea rows="3" data-s="conditions">${esc(s.conditions)}</textarea></label></div></div></details>
   </div><div class="stack"><div class="card" style="background:var(--sky-s);box-shadow:none"><h2 style="margin-bottom:6px">Facture électronique : ce qui arrive</h2>
   <p style="margin:0 0 8px">Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du <b>1er septembre 2027</b>, les TPE, PME et micro-entreprises devront aussi en émettre, par une plateforme agréée.</p>
@@ -634,6 +636,47 @@ function vReglages(){
   ${syCard()}
   <div class="card"><h2 style="margin-bottom:6px">Sauvegarde de mes données</h2><p class="muted" style="margin-top:0">${API?'Exportez de temps en temps un fichier : c\'est votre copie de secours.':'Vos données restent sur cet appareil. Exportez un fichier pour les sauvegarder ou les copier sur un autre appareil.'}</p>
   <div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</div></div></div></div>`;
+}
+
+/* ============ Chiffre d'affaires et livre des recettes ============ */
+/* Encaissements : facture payée = son TTC, sinon l'acompte saisi ; les acomptes déjà comptés via leur propre facture sont retirés de la facture finale. */
+const acSumFor=d=>d.devisId&&!d.acompte?db.docs.filter(x=>x.devisId===d.devisId&&x.acompte&&x.status==='payée').reduce((a,x)=>a+ttc(x),0):0;
+function recettes(year){
+  const out=[];
+  db.docs.filter(d=>d.type==='facture'&&d.status!=='brouillon').forEach(d=>{
+    const gross=d.status==='payée'?ttc(d):(+d.paid||0),amt=r2(Math.max(0,gross-(gross>0?acSumFor(d):0)));
+    const date=d.paidAt||d.date;if(!amt||!date||String(date).slice(0,4)!==String(year))return;
+    const r=+d.tva||0,tv=r2(amt*r/(100+r));
+    out.push({date,number:d.number,client:d.clientName||'',nature:{services:'Prestation de services',biens:'Vente de marchandises',mixte:'Vente et prestation'}[d.nature||'services'],ttc:amt,tva:tv,ht:r2(amt-tv)});
+  });
+  return out.sort((a,b)=>a.date.localeCompare(b.date)||a.number.localeCompare(b.number));
+}
+const caYears=()=>{const y=new Set([new Date().getFullYear()]);db.docs.forEach(d=>{const x=String(d.paidAt||d.date||'').slice(0,4);if(/^\d{4}$/.test(x))y.add(+x)});return [...y].sort((a,b)=>b-a)};
+const caTotal=year=>r2(recettes(year).reduce((a,x)=>a+x.ht,0));
+function caDialog(year){
+  const s=db.settings,rs=recettes(year),ca=caTotal(year),micro=s.tvaMode==='franchise',plaf=+s.plafondCA||0,taux=parseFloat(s.tauxCot)||0;
+  const mo=[...Array(12)].map((_,i)=>r2(rs.filter(x=>+x.date.slice(5,7)===i+1).reduce((a,x)=>a+x.ht,0)));
+  const q=[0,1,2,3].map(i=>r2(mo.slice(i*3,i*3+3).reduce((a,b)=>a+b,0)));
+  const pct=micro&&plaf?Math.min(100,Math.round(ca/plaf*100)):0;
+  const mn=i=>new Date(2000,i,1).toLocaleDateString('fr-FR',{month:'short'});
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dform"><h2>Chiffre d'affaires</h2>
+  <label class="f"><span>Année</span><select id="caYear" style="width:100%">${caYears().map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select></label>
+  <div class="kpi mint" style="margin:14px 0"><span>Encaissé en ${year}${micro?'':' (HT)'}</span><b>${eur(ca)}</b></div>
+  ${micro&&plaf?`<p style="margin:0 0 4px"><b>${pct} %</b> du plafond de ${eur(plaf)}</p><div class="bar2"><i style="width:${pct}%;${pct>=80?'background:var(--coral)':''}"></i></div>${pct>=80?`<p class="s" style="margin:6px 0 0;color:var(--coral-d)">Vous approchez du plafond : vérifiez le montant en vigueur sur service-public.fr.</p>`:''}`:''}
+  ${taux?`<p class="s" style="margin:10px 0 0">Cotisations estimées à ${String(taux).replace('.',',')} % : <b>${eur(r2(ca*taux/100))}</b></p>`:''}
+  <div class="sec" style="margin-top:16px"><h2>Par trimestre</h2></div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px">${q.map((v,i)=>`<span style="display:flex;justify-content:space-between;gap:8px"><span>T${i+1}</span><b>${eur(v)}</b></span>`).join('')}</div>
+  <div class="sec" style="margin-top:16px"><h2>Par mois</h2></div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px">${mo.map((v,i)=>`<span style="display:flex;justify-content:space-between;gap:8px"><span style="text-transform:capitalize">${mn(i)}</span><b>${eur(v)}</b></span>`).join('')}</div>
+  <p class="s" style="margin-top:12px">Comptage à la date de règlement (« Payée le »), sinon à la date de la facture.</p>
+  <div class="frow" style="flex-wrap:wrap"><button type="button" class="btn" data-a="closeDlg">Fermer</button><button type="button" class="btn primary" data-a="caCsv" data-year="${year}">Exporter le livre des recettes</button></div></div>`;
+  if(!dlg.open)dlg.showModal();
+}
+function recettesCsv(year){
+  const f=n=>String(n.toFixed(2)).replace('.',','),q=t=>'"'+String(t).replace(/"/g,'""')+'"',rs=recettes(year);
+  const rows=[['Date d\'encaissement','N° de facture','Client','Nature','Montant HT','TVA','Montant TTC encaissé']].map(r=>r.map(q).join(';'))
+    .concat(rs.map(x=>[x.date.split('-').reverse().join('/'),x.number,x.client,x.nature,f(x.ht),f(x.tva),f(x.ttc)].map(q).join(';')))
+    .concat([['Total '+year,'','','',f(r2(rs.reduce((a,x)=>a+x.ht,0))),f(r2(rs.reduce((a,x)=>a+x.tva,0))),f(r2(rs.reduce((a,x)=>a+x.ttc,0)))].map(q).join(';')]);
+  return '\ufeff'+rows.join('\r\n')+'\r\n';
 }
 
 /* ============ Clients ============ */
@@ -899,6 +942,7 @@ function demo(){
 /* ============ Actions ============ */
 const actions={
   syLogin:()=>syLogin(),syNow:()=>syncNow(true),syOut:()=>syLogout(),syKeepLocal:()=>syResolve(true),syKeepOnline:()=>syResolve(false),
+  caDlg:()=>caDialog(new Date().getFullYear()),caCsv:d=>{const f=new File([recettesCsv(+d.year)],'aune-livre-des-recettes-'+d.year+'.csv',{type:'text/csv'});dlFile(f);toast('Livre des recettes téléchargé')},
   newClient:()=>clientForm(),editClient:d=>clientForm(clientById(d.id)),
   delClient:d=>{if(confirm('Supprimer cette fiche client ? Les devis et factures sont conservés.')){db.clients=db.clients.filter(c=>c.id!==d.id);save();$('#dlg').close();go('clients')}},
   newDocFor:d=>newDoc(d.type,'',clientById(d.id)),
@@ -943,7 +987,7 @@ function setField(d,k,v){
   d[k]=v;
   if(k==='clientName'){const c=findClient(v);d.clientId=c?c.id:'';if(c){if(!d.clientAddress&&c.address)d.clientAddress=c.address;if(c.type==='pro'&&d.clientType!=='pro'){d.clientType='pro';d.clientSiren=c.siren||''}else if(c.type==='pro'&&!d.clientSiren)d.clientSiren=c.siren||''}}
   if(k==='clientName'&&v&&!d.clientSiren&&d.clientType!=='pro'){const o=db.docs.find(x=>x.id!==d.id&&x.clientName===v&&x.clientType==='pro');if(o){d.clientType='pro';d.clientSiren=o.clientSiren||''}}
-  if(k==='status'&&v==='payée')d.paid=ttc(d);
+  if(k==='status'){if(v==='payée'){d.paid=ttc(d);if(!d.paidAt)d.paidAt=today()}else d.paidAt=''}
   if(k==='chantierId'){const c=ch(v);if(c){if(!d.clientName)d.clientName=c.client||'';if(!d.clientAddress)d.clientAddress=c.address||''}}
   if(k==='clientName'&&v&&!d.clientAddress){const o=db.docs.find(x=>x.id!==d.id&&x.clientName===v&&x.clientAddress)||db.chantiers.find(c=>c.client===v&&c.address);if(o)d.clientAddress=o.clientAddress||o.address}
 }
@@ -951,6 +995,7 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.b&&/^client(Name|Address|Siren|Type)$/.test(t.dataset.b))setTimeout(()=>learnClient(doc(t.dataset.id)),0);
   if(t.id==='gsel'){ui.gc=t.value;render();return}
+  if(t.id==='caYear'){caDialog(+t.value);return}
   if(t.id==='file'){const f=t.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d||!d.v)throw 0;if(confirm('Remplacer vos données actuelles par ce fichier ?')){snapshot();db=normalize(d);save();go('accueil');toast('Données importées')}}catch(x){toast('Fichier non reconnu')}t.value=''};rd.readAsText(f);return}
   if(t.dataset.l==='desc'){ // prestation connue : reprend unité et prix
     const d=doc(t.dataset.id),l=d.lines[+t.dataset.i],k=catalog().get(String(t.value).trim().toLowerCase());

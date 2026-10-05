@@ -1,4 +1,4 @@
-AUNE v3.6 - suivi de chantier (PC + téléphone)
+AUNE v3.7 - suivi de chantier (PC + téléphone)
 
 Ouvrir : double-clic sur index.html (marche sur PC tout de suite).
 Sur téléphone / installable comme une appli : héberger les 4 fichiers
@@ -32,3 +32,8 @@ Clients, acompte, assurance (v3.6) :
   déduit les acomptes déjà réglés.
 - Réglages > Plus de réglages : assurance (décennale / RC pro, assureur, n° de contrat, zone) affichée sur les PDF
   et dans le Factur-X.
+
+Chiffre d'affaires (v3.7) : page Factures > tuile « CA <année> » : encaissé par mois et par trimestre, part du plafond
+de la micro-entreprise, cotisations estimées (taux facultatif), export CSV du livre des recettes (date d'encaissement =
+« Payée le », sinon date de la facture ; les acomptes ne sont pas comptés deux fois). Plafond et taux modifiables dans
+Réglages > Plus de réglages : à vérifier chaque année (service-public.fr, urssaf).
