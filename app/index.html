@@ -98,6 +98,7 @@ main{padding:34px clamp(18px,4vw,52px) 90px;max-width:1220px;width:100%}
 .row:first-child{border-top:0}
 a.row:hover{background:var(--bg)}
 .row .main{flex:1;min-width:0}
+.row .dlrow{flex:none;padding:8px;color:var(--muted)}.row .dlrow:hover{background:var(--soft);color:var(--ink)}
 .row .t{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .s,.s{color:var(--muted);font-size:14px}
 .row .amt{font-weight:750;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -435,7 +436,7 @@ const kpi=(c,l,v,href)=>`<${href?'a href="'+href+'"':'div'} class="kpi ${c}"><sp
 
 function docRow(d,msg,inChantier){
   const c=inChantier?null:ch(d.chantierId);
-  return `<a class="row" href="#/${d.type==='devis'?'devis':'factures'}/${d.id}">${av(d.clientName||'?',d.clientName||d.id)}<div class="main"><div class="t">${esc(d.clientName||'Client à renseigner')}</div><div class="s">${esc(msg||(docLabel(d)+' '+d.number+(c?' · '+c.name:'')+' · '+fdate(d.date)))}</div></div><div class="rside"><div class="amt">${eur(ttc(d))}</div>${msg?'':pill(dStatus(d))}</div></a>`;
+  return `<a class="row" href="#/${d.type==='devis'?'devis':'factures'}/${d.id}">${av(d.clientName||'?',d.clientName||d.id)}<div class="main"><div class="t">${esc(d.clientName||'Client à renseigner')}</div><div class="s">${esc(msg||(docLabel(d)+' '+d.number+(c?' · '+c.name:'')+' · '+fdate(d.date)))}</div></div><div class="rside"><div class="amt">${eur(ttc(d))}</div>${msg?'':pill(dStatus(d))}</div>${msg?'':`<button class="icon-btn dlrow" data-a="dlRow" data-id="${d.id}" aria-label="Télécharger le PDF" title="Télécharger le PDF"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></button>`}</a>`;
 }
 function chantierRow(c){
   const n=lotsOf(c).length,done=lotsDone(c);
@@ -549,8 +550,9 @@ const syncPro=d=>{const f=$('#sirenField');if(f)f.hidden=d.clientType!=='pro'};
 const acomptePct=()=>Math.min(100,Math.max(1,parseFloat(db.settings.acomptePct)||30));
 function nextButtons(d){
   const b=(v,l,cls)=>`<button class="btn ${cls||''}" data-a="setStatus" data-id="${d.id}" data-v="${v}">${l}</button>`;
-  const lab=canShareFiles()?'Envoyer':'Télécharger le PDF';
-  const send=(cls)=>`<button class="btn ${cls||''}" data-a="send" data-id="${d.id}">${lab}</button>`;
+  const share=canShareFiles();
+  const dl=cls=>`<button class="btn ${cls||''}" data-a="dl" data-id="${d.id}">Télécharger le PDF</button>`;
+  const send=(cls)=>share?`<button class="btn ${cls||''}" data-a="send" data-id="${d.id}">Envoyer</button>`+dl():dl(cls)+`<button class="btn" data-a="send" data-id="${d.id}">Envoyer par e-mail</button>`;
   if(d.type==='devis'){
     if(d.status==='brouillon')return send('primary')+b('envoyé','Marquer comme envoyé');
     if(d.status==='envoyé')return b('accepté','Devis accepté','primary')+b('refusé','Refusé')+send();
@@ -933,6 +935,13 @@ async function docSend(d,plain){
     if(fxTip&&!fxTipShown){fxTipShown=true;setTimeout(()=>toast('Facture électronique Factur-X : fonction Pro (30 jours d\'essai offerts)'),2800)}
   }finally{sendBusy=false}
 }
+async function docDownload(d){
+  if(sendBusy)return;sendBusy=true;
+  try{let f;try{f=await pdfFile(d)}catch(e){sendBusy=false;printDoc(d);return}
+    if(!f)return;dlFile(f);toast('PDF téléchargé');
+    if(fxTip&&!fxTipShown){fxTipShown=true;setTimeout(()=>toast('Facture électronique Factur-X : fonction Pro (30 jours d\'essai offerts)'),2800)}
+  }finally{sendBusy=false}
+}
 function dlFile(f){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 /* Relance d'une facture impayée : message prêt à envoyer */
 function relanceText(d){
@@ -983,6 +992,7 @@ const actions={
   addLine:d=>{if(isLocked(doc(d.id)))return;doc(d.id).lines.push({desc:'',qty:1,unit:'u',pu:0});save();ui.flash='line';render();const ls=document.querySelectorAll('#lines .line');const i=ls[ls.length-1]&&ls[ls.length-1].querySelector('.desc');if(i)i.focus()},
   delLine:d=>{const x=doc(d.id);if(isLocked(x))return;x.lines.splice(+d.i,1);if(!x.lines.length)x.lines.push({desc:'',qty:1,unit:'u',pu:0});save();render()},
   printDoc:d=>printDoc(doc(d.id)),
+  dl:d=>docDownload(doc(d.id)),dlRow:(d,e)=>{e.preventDefault();e.stopPropagation();docDownload(doc(d.id))},
   send:d=>docSend(doc(d.id)),sendPlain:d=>{$('#dlg').close();docSend(doc(d.id),true)},
   relance:d=>relanceDlg(doc(d.id)),
   rlCopy:()=>{const t=$('#rlTxt').value;(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('Message copié'),()=>{$('#rlTxt').select();toast('Sélectionnez et copiez le message')})},
