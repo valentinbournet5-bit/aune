@@ -1103,7 +1103,7 @@ function syState(){
 }
 /* ----- Formules : gratuit (appli locale) et Pro (synchro, Factur-X, suivi du CA) ----- */
 const isPro=()=>{if(!API)return true;const m=sy.s&&sy.me;if(!m)return false;if(m.legacy)return true;return m.plan==='pro'&&(!m.until||m.until>Date.now())};
-const daysLeft=t=>Math.max(0,Math.ceil((t-Date.now())/864e5));
+const daysLeft=t=>t>Date.now()?Math.max(1,Math.round((t-Date.now())/864e5)):0; // arrondi : un léger décalage d'horloge ne doit pas afficher 31 jours
 async function meRefresh(){
   if(!API||!sy.s||navigator.onLine===false)return;
   try{const was=isPro(),{status,j}=await syApi('/api/me','GET');
