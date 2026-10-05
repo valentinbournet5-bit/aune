@@ -1051,7 +1051,7 @@ function restoreUndo(){
 /* ============ Synchronisation en ligne ============ */
 /* Un seul document par compte, avec un numéro de révision. Les données restent d'abord sur l'appareil ;
    l'envoi se fait en arrière-plan. En cas de modification des deux côtés, l'utilisateur choisit. */
-const API=''; // adresse du Worker, ex. https://aune-api.monnom.workers.dev (vide = synchronisation masquée)
+const API='https://aune.valentinbournet5.workers.dev'; // adresse du Worker, ex. https://aune-api.monnom.workers.dev (vide = synchronisation masquée)
 const SK='aune.sync';
 let sy=(()=>{try{return JSON.parse(localStorage.getItem(SK))||{}}catch(e){return{}}})();
 const syKeep=()=>{try{localStorage.setItem(SK,JSON.stringify(sy))}catch(e){}};
