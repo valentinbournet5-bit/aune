@@ -1,4 +1,4 @@
-// AUNE : API de comptes (lien magique) et de synchronisation.
+// AUNE : API de comptes (lien magique ou Google) et de synchronisation.
 // Secrets : RESEND_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. Variables : APP_URL, MAIL_FROM, STRIPE_PRICE_MONTH, STRIPE_PRICE_YEAR. Base D1 : DB.
 // Formules : gratuit (appli locale) et Pro (synchronisation, Factur-X, suivi du CA) : 30 jours d'essai à la création du compte, puis abonnement Stripe.
 // Les données ne sont jamais bloquées : un compte non Pro peut toujours LIRE ses données en ligne, seule l'écriture (synchronisation) est réservée au Pro.
@@ -10,6 +10,9 @@ const MAX_LINKS_PER_HOUR = 5;
 const MAX_BYTES = 2 * 1024 * 1024;
 const TRIAL_MS = 30 * 864e5;           // essai Pro : 30 jours
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
+
+const GOOGLE_CLIENT_ID = '137550705473-tp916he0pcssvu9h3e14o5ab3k5di856.apps.googleusercontent.com'; // identifiant public (pas un secret)
+const GOOGLE_JWKS = 'https://www.googleapis.com/oauth2/v3/certs';
 
 const enc = new TextEncoder();
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
@@ -44,6 +47,39 @@ async function session(env, req) {
   const row = await env.DB.prepare('SELECT email, created FROM sessions WHERE hash=?').bind(await sha(m[1])).first();
   if (!row || Date.now() - row.created > SESSION_TTL) return null;
   return row.email;
+}
+
+
+/* ---------- Connexion Google : on vérifie la signature du jeton de Google, jamais de mot de passe ---------- */
+const b64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4)), c => c.charCodeAt(0));
+let jwksCache = null, jwksAt = 0;
+async function googleKeys(env) {
+  if (jwksCache && Date.now() - jwksAt < 3600e3) return jwksCache;
+  const r = await fetch(env.GOOGLE_JWKS_URL || GOOGLE_JWKS);
+  if (!r.ok) throw new Error('jwks');
+  jwksCache = (await r.json()).keys || []; jwksAt = Date.now();
+  return jwksCache;
+}
+async function googleEmail(env, idToken, now) {
+  const parts = String(idToken || '').split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const head = JSON.parse(new TextDecoder().decode(b64u(parts[0])));
+    if (head.alg !== 'RS256') return null;
+    let jwk = (await googleKeys(env)).find(k => k.kid === head.kid);
+    if (!jwk) { jwksCache = null; jwk = (await googleKeys(env)).find(k => k.kid === head.kid); }
+    if (!jwk) return null;
+    const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64u(parts[2]), enc.encode(parts[0] + '.' + parts[1]));
+    if (!ok) return null;
+    const c = JSON.parse(new TextDecoder().decode(b64u(parts[1])));
+    if (c.aud !== (env.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID)) return null;
+    if (c.iss !== 'https://accounts.google.com' && c.iss !== 'accounts.google.com') return null;
+    if (!(c.exp * 1000 > now)) return null;
+    if (c.email_verified !== true && c.email_verified !== 'true') return null;
+    const email = String(c.email || '').trim().toLowerCase();
+    return EMAIL_RE.test(email) ? email : null;
+  } catch { return null; }
 }
 
 /* ---------- Comptes et formules ---------- */
@@ -125,6 +161,17 @@ export default {
       const s = token();
       await env.DB.prepare('INSERT INTO sessions(hash,email,created) VALUES(?,?,?)').bind(await sha(s), row.email, now).run();
       return json(env, req, { session: s, email: row.email });
+    }
+
+    // 2 bis. Connexion avec Google : le jeton est vérifié (signature, public, expiration, adresse vérifiée).
+    if (path === '/api/google' && req.method === 'POST') {
+      const b = await readJson(req);
+      const email = await googleEmail(env, b && b.credential, now);
+      if (!email) return json(env, req, { error: 'google' }, 400);
+      await account(env, email, now);
+      const s = token();
+      await env.DB.prepare('INSERT INTO sessions(hash,email,created) VALUES(?,?,?)').bind(await sha(s), email, now).run();
+      return json(env, req, { session: s, email });
     }
 
     // Webhook Stripe : authentifié par la signature, pas par une session.

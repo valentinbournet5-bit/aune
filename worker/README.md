@@ -48,3 +48,9 @@ Sur votre ordinateur, avec Node.js installé, dans le dossier `worker/` :
 4. Les données locales sont propres à chaque adresse : avant la bascule, se connecter et synchroniser sur l'ancien appareil,
    puis se reconnecter sur aune.app (ou exporter / importer un fichier).
 5. Stripe : le retour de paiement utilise `APP_URL` (rien d'autre à changer).
+
+## Connexion avec Google
+
+- Bouton « Continuer avec Google » : l'appli reçoit un jeton de Google, le Worker (`POST /api/google`) vérifie sa signature avec les clés publiques de Google, l'audience (identifiant client), l'émetteur, l'expiration et `email_verified`, puis ouvre une session pour cette adresse. Même compte que le lien magique (clé : e-mail).
+- Identifiant client (public) : constante `GOOGLE_CLIENT_ID` dans `src/index.js` (surchargeable par une variable `GOOGLE_CLIENT_ID`). Aucun secret n'est nécessaire.
+- Console Google Cloud : client OAuth « Application Web », origine JavaScript autorisée `https://aune.app`, écran de consentement publié en production.
