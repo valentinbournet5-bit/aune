@@ -37,8 +37,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 .muted{color:var(--muted)}.small{font-size:14px}
 
 /* Mise en page : barre latérale (PC) / barre du bas (téléphone) */
-.shell{display:grid;grid-template-columns:244px minmax(0,1fr);min-height:100vh}
-.side{position:sticky;top:0;height:100vh;padding:26px 16px 20px;display:flex;flex-direction:column;gap:22px;border-right:1px solid var(--line)}
+:root{--z:1}
+@media(min-width:2000px){:root{--z:1.25}}@media(min-width:2800px){:root{--z:1.6}}
+#dlg,#toast{zoom:var(--z)}
+.shell{display:grid;grid-template-columns:244px minmax(0,1fr);min-height:calc(100vh/var(--z));zoom:var(--z)}
+.side{position:sticky;top:0;height:calc(100vh/var(--z));padding:26px 16px 20px;display:flex;flex-direction:column;gap:22px;border-right:1px solid var(--line)}
 .logo{display:flex;align-items:center;gap:10px;font-weight:850;letter-spacing:.1em;font-size:20px;padding:0 8px}
 .side nav{display:grid;gap:4px}
 .nv{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:16px;font-weight:650;color:var(--ink)}
@@ -47,7 +50,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .nv.on{background:#fff;box-shadow:var(--shadow)}
 .nv.set{margin-top:auto;color:var(--muted)}
 .ico{width:21px;height:21px;flex:none}
-main{padding:34px clamp(18px,4vw,52px) 90px;max-width:1220px;width:100%}
+main{padding:34px clamp(18px,4vw,52px) 90px;max-width:1360px;width:100%;margin-inline:auto}
 .mtop,.bottom{display:none}
 
 /* Boutons */
