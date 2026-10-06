@@ -102,7 +102,8 @@ main{padding:34px clamp(18px,4vw,52px) 90px;max-width:1360px;width:100%;margin-i
 .row:first-child{border-top:0}
 a.row:hover{background:var(--bg)}
 .row .main{flex:1;min-width:0}
-.row .dlrow{flex:none;padding:8px;color:var(--muted)}.row .dlrow:hover{background:var(--soft);color:var(--ink)}
+.row .dlrow{flex:none;padding:8px;color:var(--muted)}
+@media(max-width:560px){.row:has(.dlrow){gap:6px;padding-inline:12px}.row .dlrow{padding:6px 4px}.row .dlrow .ic{width:20px;height:20px}.row:has(.dlrow) .av,.row:has(.dlrow)>:first-child:not(.main):not(.dlrow){transform:scale(.9)}}.row .dlrow:hover{background:var(--soft);color:var(--ink)}
 .row .t{font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .s,.s{color:var(--muted);font-size:14px}
 .row .amt{font-weight:750;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -460,7 +461,7 @@ const kpi=(c,l,v,href)=>`<${href?'a href="'+href+'"':'div'} class="kpi ${c}"><sp
 
 function docRow(d,msg,inChantier){
   const c=inChantier?null:ch(d.chantierId);
-  return `<a class="row" href="#/${d.type==='devis'?'devis':'factures'}/${d.id}">${av(d.clientName||'?',d.clientName||d.id)}<div class="main"><div class="t">${esc(d.clientName||'Client à renseigner')}</div><div class="s">${esc(msg||(docLabel(d)+' '+d.number+(c?' · '+c.name:'')+' · '+fdate(d.date)))}</div></div><div class="rside"><div class="amt">${eur(ttc(d))}</div>${msg?'':pill(dStatus(d))}</div>${msg?'':`<button class="icon-btn dlrow" data-a="dlRow" data-id="${d.id}" aria-label="Télécharger le PDF" title="Télécharger le PDF"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></button>`}</a>`;
+  return `<a class="row" href="#/${d.type==='devis'?'devis':'factures'}/${d.id}">${av(d.clientName||'?',d.clientName||d.id)}<div class="main"><div class="t">${esc(d.clientName||'Client à renseigner')}</div><div class="s">${esc(msg||(docLabel(d)+' '+d.number+(c?' · '+c.name:'')+' · '+fdate(d.date)))}</div></div><div class="rside"><div class="amt">${eur(ttc(d))}</div>${msg?'':pill(dStatus(d))}</div>${msg?'':`<button class="icon-btn dlrow" data-a="dlRow" data-id="${d.id}" aria-label="Télécharger le PDF" title="Télécharger le PDF"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg></button>`}${msg||isLocked(d)?'':`<button class="icon-btn dlrow" data-a="delDocRow" data-id="${d.id}" aria-label="Supprimer" title="Supprimer"><svg class="ic" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>`}</a>`;
 }
 function chantierRow(c){
   const n=lotsOf(c).length,done=lotsDone(c);
@@ -992,6 +993,15 @@ async function docDownload(d){
     if(fxTip&&!fxTipShown){fxTipShown=true;setTimeout(()=>toast('Facture électronique Factur-X : fonction Pro (30 jours d\'essai offerts)'),2800)}
   }finally{sendBusy=false}
 }
+function deleteDocFlow(id){
+  const x0=doc(id);if(!x0)return null;
+  if(isLocked(x0)){toast('Une facture émise ne peut pas être supprimée : créez un avoir.');return null}
+  const np=n=>{const m=String(n||'').match(/-(\d{4})-(\d+)$/);return m?+m[1]*1e6+ +m[2]:0};
+  const gap=x0.type==='facture'&&db.docs.some(y=>y.type==='facture'&&!!y.avoir===!!x0.avoir&&y.id!==x0.id&&np(y.number)>np(x0.number));
+  const label=docLabel(x0)+' '+x0.number+(x0.clientName?' ('+x0.clientName+')':'');
+  if(!confirm(gap?'Attention : le numéro '+x0.number+' manquera dans votre suite de factures (la numérotation doit être continue). Supprimer quand même ?':'Supprimer '+label+' ?'))return null;
+  snapshot();db.docs=db.docs.filter(y=>y.id!==id);save();return x0;
+}
 function dlFile(f){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 /* Relance d'une facture impayée : message prêt à envoyer */
 function relanceText(d){
@@ -1035,10 +1045,8 @@ const actions={
   delLot:d=>{if(confirm('Supprimer ce '+W().lot+' ?')){db.lots=db.lots.filter(l=>l.id!==d.id);save();$('#dlg').close();render()}},
   cycleLot:d=>{const l=lot(d.id);l.status=STAT_L[(STAT_L.indexOf(l.status)+1)%STAT_L.length];save();ui.flash='lot:'+d.id;render()},
   newDoc:d=>newDoc(d.type,d.id),
-  delDoc:d=>{const x0=doc(d.id);if(isLocked(x0)){toast('Une facture émise ne peut pas être supprimée : créez un avoir.');return}
-    const np=n=>{const m=String(n||'').match(/-(\d{4})-(\d+)$/);return m?+m[1]*1e6+ +m[2]:0};
-    const gap=x0.type==='facture'&&db.docs.some(y=>y.type==='facture'&&!!y.avoir===!!x0.avoir&&y.id!==x0.id&&np(y.number)>np(x0.number));
-    if(confirm(gap?'Attention : ce numéro manquera dans votre suite de factures (la numérotation doit être continue). Supprimer quand même ?':'Supprimer ce document définitivement ?')){const x=doc(d.id);db.docs=db.docs.filter(y=>y.id!==d.id);save();go(x.type==='devis'?'devis':'factures')}},
+  delDoc:d=>{const x=deleteDocFlow(d.id);if(x)go(x.type==='devis'?'devis':'factures')},
+  delDocRow:(d,e)=>{e.preventDefault();e.stopPropagation();if(deleteDocFlow(d.id)){toast('Supprimé (annulable dans Réglages)');render()}},
   addLine:d=>{if(isLocked(doc(d.id)))return;doc(d.id).lines.push({desc:'',qty:1,unit:'u',pu:0});save();ui.flash='line';render();const ls=document.querySelectorAll('#lines .line');const i=ls[ls.length-1]&&ls[ls.length-1].querySelector('.desc');if(i)i.focus()},
   delLine:d=>{const x=doc(d.id);if(isLocked(x))return;x.lines.splice(+d.i,1);if(!x.lines.length)x.lines.push({desc:'',qty:1,unit:'u',pu:0});save();render()},
   printDoc:d=>printDoc(doc(d.id)),
