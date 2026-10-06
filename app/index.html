@@ -622,7 +622,7 @@ function vDocEdit(d){
   <div class="editor${isLocked(d)?' locked':''}">
    <section class="card e-info"><div class="fgrid">
     <label class="f">Client<input type="text" list="dl_cl" data-b="clientName" data-id="${d.id}" value="${esc(d.clientName)}" placeholder="Nom du client" ${d.clientName?'':'autofocus'}></label>
-    <label class="f">Chantier<select data-b="chantierId" data-id="${d.id}"><option value="">— Aucun —</option>${db.chantiers.map(c=>`<option value="${c.id}" ${c.id===d.chantierId?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
+    <label class="f">${Wc()}<select data-b="chantierId" data-id="${d.id}"><option value="">— Aucun —</option>${db.chantiers.map(c=>`<option value="${c.id}" ${c.id===d.chantierId?'selected':''}>${esc(c.name)}</option>`).join('')}</select></label>
     <label class="f">Type de client<select data-b="clientType" data-id="${d.id}"><option value="particulier" ${d.clientType!=='pro'?'selected':''}>Particulier</option><option value="pro" ${d.clientType==='pro'?'selected':''}>Professionnel (entreprise)</option></select></label>
     <label class="f" id="sirenField" ${d.clientType==='pro'?'':'hidden'}>SIREN du client<input type="text" inputmode="numeric" maxlength="9" data-b="clientSiren" data-id="${d.id}" value="${esc(d.clientSiren)}" placeholder="9 chiffres"></label>
     <p class="s full" style="margin:0">Particulier : pas de facture électronique, seules les données de vente sont transmises. Professionnel : facture électronique obligatoire à partir du 1er septembre 2027.</p>
