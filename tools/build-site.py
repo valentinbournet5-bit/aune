@@ -68,6 +68,9 @@ FAQ_HTML = "\n".join([
 faq("Où sont mes données ?","Sur votre appareil. Avec un compte, elles sont aussi synchronisées en ligne. Vous pouvez tout exporter ou supprimer à tout moment."),
 faq("Et la facture électronique ?","AUNE produit des factures Factur-X pour vos clients professionnels. L'envoi à une plateforme agréée (obligatoire en 2027) est à venir."),
 faq("Ça marche sans internet ?","Oui. Tout fonctionne sans réseau, et se synchronise au retour du signal."),
+faq("Mes factures sont-elles conformes ?","AUNE ajoute les mentions obligatoires, numérote vos factures sans trou et verrouille une facture émise. Pour la corriger, on émet un avoir, comme la loi l'impose."),
+faq("Mes données sont-elles en sécurité ?","Elles restent sur votre appareil. Avec un compte, la copie en ligne est transmise en HTTPS, protégée par votre lien de connexion personnel, et vous pouvez la supprimer en un clic."),
+faq("Pour qui est AUNE ?","Pour les artisans, auto-entrepreneurs et indépendants : bâtiment, services, conseil, création. Vous choisissez le vocabulaire : projet, chantier ou dossier."),
 faq("Comment résilier ?","En un clic, dans l'appli. Vos données restent à vous."),
 ])
 
@@ -88,9 +91,9 @@ INDEX = head("AUNE : devis, factures et chantiers pour artisans",
 ''') + HEADER + f'''
 <main>
 <section class="bh"><div class="wrap">
-<span class="kicker an" style="--d:0"><i>{ic('check')}</i>Prêt pour la facture électronique 2027</span>
+<span class="kicker an" style="--d:0"><i>{ic('check')}</i>Factur-X inclus, envoi aux plateformes agréées bientôt</span>
 <h1 class="an" style="--d:1">Le <mark>devis</mark> est fait avant de quitter le <mark>chantier</mark>.</h1>
-<p class="lead an" style="--d:2">Devis, factures et chantiers. Sur téléphone et ordinateur, même sans réseau.</p>
+<p class="lead an" style="--d:2">Devis, factures et projets. Sur téléphone et ordinateur, même sans réseau.</p>
 <div class="cta an" style="--d:3"><a class="btn primary" href="app/">Essayer gratuitement {ic('arrow')}</a><a class="btn white" href="#tarifs">Voir les tarifs</a></div>
 <div class="bstage">
 <div class="bphone"><img src="img/m-home.webp" alt="AUNE sur téléphone" width="640" height="1385"></div>
@@ -102,7 +105,7 @@ INDEX = head("AUNE : devis, factures et chantiers pour artisans",
 <div class="wrap" id="fonctions"><div class="bands">
 <div class="band sky rv"><div><span class="num">1</span><h2>Devis</h2><p>Sur place, en quelques lignes.</p></div><div class="shot"><img src="img/m-devis.webp" alt="Un devis dans AUNE" width="640" height="1385" loading="lazy"></div></div>
 <div class="band mint rev rv"><div><span class="num">2</span><h2>Facture</h2><p>Le devis accepté devient facture. Factur-X inclus.</p></div><img class="sheet" src="img/facture.webp" alt="Une facture générée par AUNE" width="900" height="633" loading="lazy"></div>
-<div class="band lemon rv"><div><span class="num">3</span><h2>Chantier</h2><p>Tous vos chantiers au même endroit.</p></div><div class="shot"><img src="img/m-chan.webp" alt="Les chantiers dans AUNE" width="640" height="1385" loading="lazy"></div></div>
+<div class="band lemon rv"><div><span class="num">3</span><h2>Projet</h2><p>Tous vos projets au même endroit.</p></div><div class="shot"><img src="img/m-chan.webp" alt="Les projets dans AUNE" width="640" height="1385" loading="lazy"></div></div>
 </div>
 <div class="trades rv"><span>Facture électronique</span><span>Chiffre d'affaires</span><span>Tous vos appareils</span><span>Sans réseau</span></div>
 </div>
@@ -120,10 +123,10 @@ INDEX = head("AUNE : devis, factures et chantiers pour artisans",
 <h2 class="rv">Gratuit pour commencer. <mark class="lemon">Pro</mark> si besoin.</h2>
 <div class="price" style="margin-top:30px">
 <div class="plan rv"><h3>Gratuit</h3><div class="amt">0 €</div>
-<ul><li>Devis, factures, avoirs</li><li>Clients, chantiers, planning</li><li class="no">Synchronisation</li><li class="no">Factur-X et chiffre d'affaires</li></ul>
+<ul><li>Devis, factures, avoirs</li><li>Clients, projets, planning</li><li class="no">Synchronisation</li><li class="no">Factur-X et chiffre d'affaires</li></ul>
 <a class="btn" href="app/">Commencer</a></div>
 <div class="plan pro rv"><span class="tag">30 jours offerts</span><h3>Pro</h3><div class="amt">9 € <small>/ mois</small></div><p style="margin:0;opacity:.8">ou 90 € par an</p>
-<ul><li>Tout le plan Gratuit</li><li>Synchronisation téléphone et ordinateur</li><li>Factur-X et chiffre d'affaires</li></ul>
+<ul><li><b>Tout le plan Gratuit, plus :</b></li><li>Synchronisation téléphone et ordinateur</li><li>Factur-X et chiffre d'affaires</li></ul>
 <a class="btn primary" href="app/">Essayer 30 jours</a></div>
 </div>
 <p class="legalnote">Sans carte bancaire pour l'essai. TVA non applicable, art. 293 B du CGI.</p>
