@@ -69,7 +69,7 @@ faq("Où sont mes données ?","Sur votre appareil. Avec un compte, elles sont au
 faq("Et la facture électronique ?","AUNE produit des factures Factur-X pour vos clients professionnels. L'envoi à une plateforme agréée (obligatoire en 2027) est à venir."),
 faq("Ça marche sans internet ?","Oui. Tout fonctionne sans réseau, et se synchronise au retour du signal."),
 faq("Mes factures sont-elles conformes ?","AUNE ajoute les mentions obligatoires, numérote vos factures sans trou et verrouille une facture émise. Pour la corriger, on émet un avoir, comme la loi l'impose."),
-faq("Mes données sont-elles en sécurité ?","Elles restent sur votre appareil. Avec un compte, la copie en ligne est transmise en HTTPS, protégée par votre lien de connexion personnel, et vous pouvez la supprimer en un clic."),
+faq("Mes données sont-elles en sécurité ?","Elles restent sur votre appareil. Avec un compte, la copie en ligne est stockée en Europe de l'Ouest (Cloudflare), transmise en HTTPS, protégée par votre lien de connexion personnel, et vous pouvez la supprimer en un clic."),
 faq("Pour qui est AUNE ?","Pour les artisans, auto-entrepreneurs et indépendants : bâtiment, services, conseil, création. Vous choisissez le vocabulaire : projet, chantier ou dossier."),
 faq("Comment résilier ?","En un clic, dans l'appli. Vos données restent à vous."),
 ])
