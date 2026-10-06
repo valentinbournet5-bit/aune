@@ -178,6 +178,16 @@ dialog::backdrop{background:rgba(35,39,51,.45)}
 .line .icon-btn{align-self:end;height:46px}
 .gor{display:flex;align-items:center;gap:12px;margin:14px 0 10px;color:var(--muted);font-size:14px}.gor::before,.gor::after{content:"";flex:1;height:1px;background:var(--line)}
 .gbtn{min-height:44px;display:flex;justify-content:center}
+/* démarrage guidé */
+.start{margin-bottom:22px}.start h2{margin:0}
+.sthead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.start .bar2{margin:4px 0 14px}
+.steps{display:grid;gap:8px}
+.stp{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:16px;background:var(--bg)}
+.stp .stk{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-weight:800;font-size:14px;flex:none;background:#fff}
+.stp.ok .stk{background:var(--mint);border-color:var(--mint);color:var(--ink)}
+.stp .stx{flex:1;min-width:0;display:grid}.stp .stx b{font-weight:700}
+.stp.ok{opacity:.6}.stp.ok .stx b{text-decoration:line-through}
 .mini{display:grid;gap:3px;font-size:12.5px;color:var(--muted);font-weight:600}
 .mini input{background:#fff}
 .row .rside{display:grid;justify-items:end;gap:4px}
@@ -459,6 +469,23 @@ function chantierCard(c){
   return `<a class="ccard" href="#/chantier/${c.id}"><div class="ctop">${av(c.name,c.id)}${pill(c.status)}</div><div class="cname">${esc(c.name)}</div><div class="s">${esc(c.client||'Client non renseigné')}</div><div class="bar2"><i style="width:${progOf(c)}%"></i></div><div class="s cfoot">${n?`${done}/${n} ${lotN(n)} terminé${n>1?'s':''}`:'Aucun '+W().lot}${c.end?` · fin ${fshort(c.end)}`:''}</div></a>`;
 }
 
+/* Démarrage guidé : 4 petites étapes, qui se cochent toutes seules */
+const startDismissed=()=>lsGet('aune.start')===1;
+function startCard(){
+  if(startDismissed())return '';
+  const s=db.settings,hasD=db.docs.some(d=>d.type==='devis'),hasF=db.docs.some(d=>d.type==='facture'&&!d.avoir);
+  const steps=[
+    [!!s.name,'Votre entreprise','Nom, SIRET, IBAN : ils figurent sur vos documents','<a class="btn sm" href="#/reglages">Remplir</a>'],
+    [db.clients.length>0,'Un premier client','Il se retrouve ensuite en deux clics','<button class="btn sm" data-a="newClient">Ajouter</button>'],
+    [hasD,'Un premier devis','Il devient facture en un clic','<button class="btn sm primary" data-a="newDoc" data-type="devis">Créer</button>'],
+    [hasF,'Une première facture','En PDF, prête à envoyer','<button class="btn sm" data-a="newDoc" data-type="facture">Créer</button>']];
+  const n=steps.filter(x=>x[0]).length;
+  if(n===steps.length)return '';
+  return `<div class="start card"><div class="sthead"><div><h2>Bien démarrer</h2><p class="muted small" style="margin:2px 0 0">${n} étape${n>1?'s':''} sur ${steps.length}</p></div><button class="btn link" data-a="hideStart">Masquer</button></div>
+  <div class="bar2"><i style="width:${Math.round(n/steps.length*100)}%"></i></div>
+  <div class="steps">${steps.map(([ok,t,sub,act])=>`<div class="stp${ok?' ok':''}"><span class="stk">${ok?'✓':''}</span><div class="stx"><b>${t}</b><span class="s">${sub}</span></div>${ok?'':act}</div>`).join('')}</div>
+  ${db.docs.length?'':`<p class="s" style="margin:12px 0 0">Pressé ? <button class="btn link" data-a="demo">Voir avec un exemple</button></p>`}</div>`;
+}
 function vAccueil(){
   const t=today(),s=db.settings;
   const quick=`<div class="quick">
@@ -467,8 +494,8 @@ function vAccueil(){
     <button class="tile lilac" data-a="newChantier"><span class="plus">+</span><span><b>${Wc()}</b><span class="ts">Suivre un nouveau ${W().one}</span></span></button></div>`;
   const dateTxt=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   if(!db.chantiers.length&&!db.docs.length){
-    return head('Bonjour',dateTxt)+quick+
-      `<div class="empty"><b>Rien pour l'instant</b>Commencez par un devis : il se transforme ensuite en facture en un clic.<div><button class="btn link" data-a="demo">Voir avec un exemple</button></div></div>`;
+    return head('Bonjour',dateTxt)+(startCard()||'')+quick+
+      (startDismissed()?`<div class="empty"><b>Rien pour l'instant</b>Commencez par un devis : il se transforme ensuite en facture en un clic.<div><button class="btn link" data-a="demo">Voir avec un exemple</button></div></div>`:'');
   }
   const todo=[];
   db.docs.filter(isLate).forEach(d=>todo.push({d,w:0,msg:'En retard · échue le '+fdate(d.due)}));
@@ -480,10 +507,10 @@ function vAccueil(){
   const aEnc=db.docs.filter(d=>d.type==='facture'&&d.status==='envoyée').reduce((x,d)=>x+reste(d),0);
   const late=db.docs.filter(isLate).reduce((x,d)=>x+reste(d),0);
   const att=db.docs.filter(d=>d.type==='devis'&&d.status==='envoyé').reduce((x,d)=>x+ttc(d),0);
-  return head('Bonjour',dateTxt)+quick+
+  return head('Bonjour',dateTxt)+startCard()+quick+
   `<div class="kpis">${kpi('mint','À encaisser',eur(aEnc),'#/factures')}${kpi('coral','En retard',eur(late),'#/factures')}${kpi('sky','Devis en attente',eur(att),'#/devis')}${kpi('lilac',Wcs()+' en cours',actifs.length,'#/chantiers')}</div>`+
   (backupDue()?`<div class="notice">${bkAge()} <button class="btn link" data-a="export">Exporter maintenant</button></div>`:'')+
-  (!s.name?`<div class="notice">Ajoutez le nom de votre entreprise pour qu'il figure sur vos devis. <a href="#/reglages"><u>Ouvrir les réglages</u></a></div>`:'')+
+  (!s.name&&startDismissed()?`<div class="notice">Ajoutez le nom de votre entreprise pour qu'il figure sur vos devis. <a href="#/reglages"><u>Ouvrir les réglages</u></a></div>`:'')+
   `<div class="cols2"><div><div class="sec"><h2>À traiter</h2></div>`+
   (todo.length?`<div class="list">${todo.slice(0,6).map(x=>docRow(x.d,x.msg)).join('')}</div>`:`<div class="empty">Tout est à jour.</div>`)+
   `</div><div><div class="sec"><h2>${Wcs()} en cours</h2><a href="#/chantiers"><u>Tous</u></a></div>`+
@@ -1013,6 +1040,7 @@ const actions={
   delLine:d=>{const x=doc(d.id);if(isLocked(x))return;x.lines.splice(+d.i,1);if(!x.lines.length)x.lines.push({desc:'',qty:1,unit:'u',pu:0});save();render()},
   printDoc:d=>printDoc(doc(d.id)),
   dl:d=>docDownload(doc(d.id)),dlRow:(d,e)=>{e.preventDefault();e.stopPropagation();docDownload(doc(d.id))},
+  hideStart:()=>{lsSet('aune.start',1);render()},
   install:()=>{if(installEv){const e=installEv;installEv=null;e.prompt();e.userChoice.finally(()=>render())}else installDlg()},
   send:d=>docSend(doc(d.id)),sendPlain:d=>{$('#dlg').close();docSend(doc(d.id),true)},
   relance:d=>relanceDlg(doc(d.id)),
