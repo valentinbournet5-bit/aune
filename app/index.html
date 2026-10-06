@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AUNE · Suivi de chantier</title>
+<title>AUNE · Devis, factures et projets</title>
 <meta name="theme-color" content="#f8f7f3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -345,6 +345,13 @@ const STAT_F=['brouillon','envoyée','payée'];
 const TRADES=['Terrassement','Maçonnerie / Gros œuvre','Charpente','Couverture','Menuiserie','Plomberie','Électricité','Chauffage / Clim','Plâtrerie / Isolation','Carrelage','Peinture','Façade','Paysage / VRD','Autre'];
 const tone=s=>({'en cours':'info','à venir':'','terminé':'ok','en pause':'warn','brouillon':'','envoyé':'info','envoyée':'info','accepté':'ok','refusé':'bad','payée':'ok','en retard':'bad','annulée':'bad'}[s]||'');
 const pill=s=>`<span class="pill ${tone(s)}">${esc(s)}</span>`;
+/* Vocabulaire : « chantier », « projet » ou « dossier » au choix (les données ne changent pas) */
+const VOC={
+ projet:{one:'projet',many:'projets',lot:'intervenant',lots:'intervenants',role:'Rôle ou métier',who:'Entreprise ou personne'},
+ chantier:{one:'chantier',many:'chantiers',lot:'corps de métier',lots:'corps de métier',role:'Corps de métier',who:'Entreprise ou artisan'},
+ dossier:{one:'dossier',many:'dossiers',lot:'intervenant',lots:'intervenants',role:'Rôle ou métier',who:'Entreprise ou personne'}};
+const W=()=>VOC[(db.settings||{}).vocab]||VOC.projet,cap=x=>x.charAt(0).toUpperCase()+x.slice(1),Wc=()=>cap(W().one),Wcs=()=>cap(W().many);
+const lotN=n=>n>1?W().lots:W().lot;
 const blank=()=>({v:1,chantiers:[],lots:[],tasks:[],docs:[],clients:[],settings:{
   name:'',legal:'',siret:'',vatId:'',address:'',email:'',phone:'',iban:'',tvaMode:'franchise',tva:20,
   devisPrefix:'DEV',facturePrefix:'FAC',avoirPrefix:'AV',acomptePct:30,plafondCA:83600,tauxCot:'',
@@ -444,7 +451,7 @@ function chantierRow(c){
 }
 function chantierCard(c){
   const n=lotsOf(c).length,done=lotsDone(c);
-  return `<a class="ccard" href="#/chantier/${c.id}"><div class="ctop">${av(c.name,c.id)}${pill(c.status)}</div><div class="cname">${esc(c.name)}</div><div class="s">${esc(c.client||'Client non renseigné')}</div><div class="bar2"><i style="width:${progOf(c)}%"></i></div><div class="s cfoot">${n?`${done}/${n} corps de métier terminés`:'Aucun corps de métier'}${c.end?` · fin ${fshort(c.end)}`:''}</div></a>`;
+  return `<a class="ccard" href="#/chantier/${c.id}"><div class="ctop">${av(c.name,c.id)}${pill(c.status)}</div><div class="cname">${esc(c.name)}</div><div class="s">${esc(c.client||'Client non renseigné')}</div><div class="bar2"><i style="width:${progOf(c)}%"></i></div><div class="s cfoot">${n?`${done}/${n} ${lotN(n)} terminé${n>1?'s':''}`:'Aucun '+W().lot}${c.end?` · fin ${fshort(c.end)}`:''}</div></a>`;
 }
 
 function vAccueil(){
@@ -452,7 +459,7 @@ function vAccueil(){
   const quick=`<div class="quick">
     <button class="tile sky" data-a="newDoc" data-type="devis"><span class="plus">+</span><span><b>Devis</b><span class="ts">Préparer un devis</span></span></button>
     <button class="tile mint" data-a="newDoc" data-type="facture"><span class="plus">+</span><span><b>Facture</b><span class="ts">Facturer un client</span></span></button>
-    <button class="tile lilac" data-a="newChantier"><span class="plus">+</span><span><b>Chantier</b><span class="ts">Suivre un nouveau chantier</span></span></button></div>`;
+    <button class="tile lilac" data-a="newChantier"><span class="plus">+</span><span><b>${Wc()}</b><span class="ts">Suivre un nouveau ${W().one}</span></span></button></div>`;
   const dateTxt=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   if(!db.chantiers.length&&!db.docs.length){
     return head('Bonjour',dateTxt)+quick+
@@ -469,50 +476,50 @@ function vAccueil(){
   const late=db.docs.filter(isLate).reduce((x,d)=>x+reste(d),0);
   const att=db.docs.filter(d=>d.type==='devis'&&d.status==='envoyé').reduce((x,d)=>x+ttc(d),0);
   return head('Bonjour',dateTxt)+quick+
-  `<div class="kpis">${kpi('mint','À encaisser',eur(aEnc),'#/factures')}${kpi('coral','En retard',eur(late),'#/factures')}${kpi('sky','Devis en attente',eur(att),'#/devis')}${kpi('lilac','Chantiers en cours',actifs.length,'#/chantiers')}</div>`+
+  `<div class="kpis">${kpi('mint','À encaisser',eur(aEnc),'#/factures')}${kpi('coral','En retard',eur(late),'#/factures')}${kpi('sky','Devis en attente',eur(att),'#/devis')}${kpi('lilac',Wcs()+' en cours',actifs.length,'#/chantiers')}</div>`+
   (backupDue()?`<div class="notice">${bkAge()} <button class="btn link" data-a="export">Exporter maintenant</button></div>`:'')+
   (!s.name?`<div class="notice">Ajoutez le nom de votre entreprise pour qu'il figure sur vos devis. <a href="#/reglages"><u>Ouvrir les réglages</u></a></div>`:'')+
   `<div class="cols2"><div><div class="sec"><h2>À traiter</h2></div>`+
   (todo.length?`<div class="list">${todo.slice(0,6).map(x=>docRow(x.d,x.msg)).join('')}</div>`:`<div class="empty">Tout est à jour.</div>`)+
-  `</div><div><div class="sec"><h2>Chantiers en cours</h2><a href="#/chantiers"><u>Tous</u></a></div>`+
-  (actifs.length?`<div class="list">${actifs.map(chantierRow).join('')}</div>`:`<div class="empty">Aucun chantier en cours.</div>`)+`</div></div>`;
+  `</div><div><div class="sec"><h2>${Wcs()} en cours</h2><a href="#/chantiers"><u>Tous</u></a></div>`+
+  (actifs.length?`<div class="list">${actifs.map(chantierRow).join('')}</div>`:`<div class="empty">Aucun ${W().one} en cours.</div>`)+`</div></div>`;
 }
 
 function listChantiers(){
   const q=ui.q.toLowerCase();
   const l=db.chantiers.filter(c=>!q||(c.name+' '+c.client+' '+c.address).toLowerCase().includes(q));
-  if(!l.length)return empty(q?'Aucun résultat':'Aucun chantier','Un chantier regroupe vos corps de métier, devis et factures.',q?'':`<button class="btn primary" data-a="newChantier">+ Chantier</button>`);
+  if(!l.length)return empty(q?'Aucun résultat':'Aucun '+W().one,'Un '+W().one+' regroupe vos '+W().lots+', devis et factures.',q?'':`<button class="btn primary" data-a="newChantier">+ ${Wc()}</button>`);
   return [['en cours','En cours'],['à venir','À venir'],['en pause','En pause'],['terminé','Terminés']].map(([k,t])=>{
     const g=l.filter(c=>c.status===k);return g.length?`<div class="sec"><h2>${t}<span class="count">${g.length}</span></h2></div><div class="cards">${g.map(chantierCard).join('')}</div>`:''}).join('');
 }
 function vChantiers(){
-  return head('Chantiers','',`<a class="btn" href="#/planning">Planning</a><button class="btn primary" data-a="newChantier">+ Chantier</button>`)+
-  (db.chantiers.length>4?`<input class="search" type="search" placeholder="Rechercher un chantier ou un client" data-q="chantiers" value="${esc(ui.q)}">`:'')+
+  return head(Wcs(),'',`<a class="btn" href="#/planning">Planning</a><button class="btn primary" data-a="newChantier">+ ${Wc()}</button>`)+
+  (db.chantiers.length>4?`<input class="search" type="search" placeholder="Rechercher un ${W().one} ou un client" data-q="chantiers" value="${esc(ui.q)}">`:'')+
   `<div id="list">${listChantiers()}</div>`;
 }
 
 function vChantier(r){
   const c=ch(r.id);
-  if(!c)return empty('Chantier introuvable','Il a peut-être été supprimé.','<a class="btn" href="#/chantiers">Retour</a>');
+  if(!c)return empty(Wc()+' introuvable','Il a peut-être été supprimé.','<a class="btn" href="#/chantiers">Retour</a>');
   const ls=lotsOf(c),n=ls.length,docs=db.docs.filter(d=>d.chantierId===c.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const accepted=docs.filter(d=>d.type==='devis'&&d.status==='accepté').reduce((s,d)=>s+ttc(d),0);
   const billed=docs.filter(d=>d.type==='facture'&&d.status!=='brouillon').reduce((s,d)=>s+ttc(d),0);
   const due=docs.filter(d=>d.type==='facture'&&d.status==='envoyée').reduce((s,d)=>s+reste(d),0);
   const chips=[c.phone?`<a href="tel:${esc(c.phone.replace(/\s/g,''))}">${esc(c.phone)}</a>`:'',c.start||c.end?`<span>${fdate(c.start)} → ${fdate(c.end)}</span>`:'',c.budget?`<span>Budget ${eur(c.budget)} HT</span>`:''].filter(Boolean).join('');
-  return `<div class="hero"><div class="hero-top"><a class="back" href="#/chantiers">← Chantiers</a><button class="btn sm" data-a="editChantier" data-id="${c.id}">Modifier</button></div>
+  return `<div class="hero"><div class="hero-top"><a class="back" href="#/chantiers">← ${Wcs()}</a><button class="btn sm" data-a="editChantier" data-id="${c.id}">Modifier</button></div>
     <div class="hero-main">${av(c.name,'hero')}<div><h1>${esc(c.name)}</h1><div class="s" style="margin-top:4px">${esc([c.client,c.address].filter(Boolean).join(' · '))}</div></div>${pill(c.status)}</div>
     <div class="bar2"><i style="width:${progOf(c)}%"></i></div>
-    <div class="s" style="margin-top:6px">${n?`${lotsDone(c)} corps de métier terminé${lotsDone(c)>1?'s':''} sur ${n}`:'Aucun corps de métier pour le moment'}</div>
+    <div class="s" style="margin-top:6px">${n?`${lotsDone(c)} ${lotN(lotsDone(c))} terminé${lotsDone(c)>1?'s':''} sur ${n}`:`Aucun ${W().lot} pour le moment`}</div>
     ${chips?`<div class="chips">${chips}</div>`:''}</div>
   <div class="cols2">
-   <div><div class="sec"><h2>Corps de métier</h2><button class="btn sm lilac" data-a="newLot" data-id="${c.id}">+ Ajouter</button></div>`+
+   <div><div class="sec"><h2>${cap(W().lots)}</h2><button class="btn sm lilac" data-a="newLot" data-id="${c.id}">+ Ajouter</button></div>`+
   (n?`<div class="list">${ls.map(l=>`<div class="row">${av(l.trade,l.trade)}<div class="main"><div class="t">${esc(l.trade)}</div><div class="s">${esc(l.company||'Entreprise non renseignée')}${l.start||l.end?' · '+fshort(l.start)+(l.end?' → '+fshort(l.end):''):''}</div></div><div class="racts">${l.phone?`<a class="btn sm" href="tel:${esc(l.phone.replace(/\s/g,''))}" aria-label="Appeler ${esc(l.company||l.trade)}">Appeler</a>`:''}<button class="pill ${tone(l.status)}" data-a="cycleLot" data-id="${l.id}" title="Toucher pour changer l'état">${l.status}</button><button class="btn sm" data-a="editLot" data-id="${l.id}" aria-label="Modifier">⋯</button></div></div>`).join('')}</div>`
-   :empty('Aucun corps de métier','Ajoutez les artisans qui interviennent.',`<button class="btn primary" data-a="newLot" data-id="${c.id}">+ Corps de métier</button>`))+
+   :empty('Aucun '+W().lot,'Ajoutez les personnes ou entreprises qui interviennent.',`<button class="btn primary" data-a="newLot" data-id="${c.id}">+ ${cap(W().lot)}</button>`))+
   (c.notes?`<div class="sec"><h2>Notes</h2></div><div class="card" style="white-space:pre-wrap">${esc(c.notes)}</div>`:'')+
   `</div><div>
    <div class="sec"><h2>Argent</h2></div><div class="card"><div class="stats"><div><span>Devis acceptés</span><b>${eur(accepted)}</b></div><div><span>Facturé</span><b>${eur(billed)}</b></div><div><span>Reste à encaisser</span><b>${eur(due)}</b></div></div></div>
    <div class="sec"><h2>Devis et factures</h2><span class="btns"><button class="btn sm sky" data-a="newDoc" data-type="devis" data-id="${c.id}">+ Devis</button><button class="btn sm mint" data-a="newDoc" data-type="facture" data-id="${c.id}">+ Facture</button></span></div>`+
-  (docs.length?`<div class="list">${docs.map(d=>docRow(d,null,true)).join('')}</div>`:`<div class="empty">Aucun document pour ce chantier.</div>`)+
+  (docs.length?`<div class="list">${docs.map(d=>docRow(d,null,true)).join('')}</div>`:`<div class="empty">Aucun document pour ce ${W().one}.</div>`)+
   `</div></div>`;
 }
 
@@ -602,7 +609,7 @@ function vDocEdit(d){
     <label class="f full">Adresse du client<input type="text" data-b="clientAddress" data-id="${d.id}" value="${esc(d.clientAddress)}"></label>
     <label class="f">Nature de l'opération<select data-b="nature" data-id="${d.id}">${[['services','Prestation de services'],['biens','Livraison de biens'],['mixte','Biens et services']].map(([v,l])=>`<option value="${v}" ${(d.nature||'services')===v?'selected':''}>${l}</option>`).join('')}</select></label>
     <label class="f" id="debitsField" ${(+d.tva)?'':'hidden'}>TVA sur les débits<select data-b="tvaDebits" data-id="${d.id}"><option value="0" ${d.tvaDebits?'':'selected'}>Non</option><option value="1" ${d.tvaDebits?'selected':''}>Oui, option choisie</option></select></label>
-    <label class="f full">Adresse de livraison ou du chantier (si différente de celle du client)<input type="text" data-b="deliveryAddress" data-id="${d.id}" value="${esc(d.deliveryAddress)}"></label>
+    <label class="f full">Adresse de livraison ou du ${W().one} (si différente de celle du client)<input type="text" data-b="deliveryAddress" data-id="${d.id}" value="${esc(d.deliveryAddress)}"></label>
     <label class="f full">Notes affichées sur le document<textarea rows="2" data-b="notes" data-id="${d.id}">${esc(d.notes)}</textarea></label>
     </div><div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">${d.avoir?'':`<button class="btn sm" data-a="dupDoc" data-id="${d.id}">Dupliquer</button>`}${isLocked(d)?'':`<button class="btn danger sm" data-a="delDoc" data-id="${d.id}">Supprimer ce document</button>`}</div></div></details></section>
   </div>`;
@@ -624,11 +631,11 @@ function vPlanning(){
     rows+=`<div class="g"><div class="gl c"><a href="#/chantier/${c.id}">${esc(c.name)}</a></div>${track(bar(c.start,c.end,'var(--ink)','c',c.name))}</div>`;
     ls.forEach(l=>{rows+=`<div class="g"><div class="gl">${esc(l.trade)}</div>${track(bar(l.start,l.end,colorOf(l.trade),l.status==='terminé'?'done':'',l.trade+' · '+(l.company||'')))}</div>`});
   });
-  return `<a class="back" href="#/chantiers">← Chantiers</a>`+head('Planning',`${fdate(ws)} → ${fdate(addDays(ws,days-1))}`,
-    `<select id="gsel" aria-label="Filtrer par chantier" style="width:auto"><option value="">Tous les chantiers</option>${db.chantiers.map(c=>`<option value="${c.id}" ${ui.gc===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
+  return `<a class="back" href="#/chantiers">← ${Wcs()}</a>`+head('Planning',`${fdate(ws)} → ${fdate(addDays(ws,days-1))}`,
+    `<select id="gsel" aria-label="Filtrer par ${W().one}" style="width:auto"><option value="">Tous les ${W().many}</option>${db.chantiers.map(c=>`<option value="${c.id}" ${ui.gc===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
      <button class="btn" data-a="gprev" aria-label="Période précédente">←</button><button class="btn" data-a="gtoday">Aujourd'hui</button><button class="btn" data-a="gnext" aria-label="Période suivante">→</button>`)+
-  (rows?`<div class="gantt"><div class="g"><div class="gl"></div><div class="gw">${weeks.map(w=>`<span>${fshort(w)}</span>`).join('')}</div></div>${rows}</div><p class="muted small">Le trait corail marque aujourd'hui. Les dates se règlent dans chaque corps de métier.</p>`
-   :empty('Rien à afficher','Ajoutez des dates à vos corps de métier pour les voir ici.',`<a class="btn primary" href="#/chantiers">Voir les chantiers</a>`));
+  (rows?`<div class="gantt"><div class="g"><div class="gl"></div><div class="gw">${weeks.map(w=>`<span>${fshort(w)}</span>`).join('')}</div></div>${rows}</div><p class="muted small">Le trait corail marque aujourd'hui. Les dates se règlent dans chaque ${W().lot}.</p>`
+   :empty('Rien à afficher','Ajoutez des dates à vos '+W().lots+' pour les voir ici.',`<a class="btn primary" href="#/chantiers">Voir les ${W().many}</a>`));
 }
 
 function vReglages(){
@@ -638,6 +645,7 @@ function vReglages(){
    <div class="card"><h2 style="margin-bottom:14px">Mon entreprise</h2><div class="fgrid">
     ${f('name','Nom de l\'entreprise',null,true)}${f('siret','SIRET')}${f('phone','Téléphone','tel')}${f('email','E-mail','email')}${f('address','Adresse')}
     <label class="f full">Régime de TVA<select data-s="tvaMode"><option value="franchise" ${s.tvaMode==='franchise'?'selected':''}>Auto-entrepreneur : TVA non applicable (art. 293 B du CGI)</option><option value="assujetti" ${s.tvaMode==='assujetti'?'selected':''}>Assujetti à la TVA</option></select></label>
+    <label class="f full">Vocabulaire<select data-s="vocab">${Object.keys(VOC).map(k=>`<option value="${k}" ${W()===VOC[k]?'selected':''}>${cap(VOC[k].one)}${k==='projet'?' (recommandé)':''}</option>`).join('')}</select></label>
    </div></div>
    <details class="more"><summary>Plus de réglages</summary><div class="card" style="margin-top:6px"><div class="fgrid">
     <p class="s full" style="margin:2px 0 -4px"><b>Assurance (bâtiment)</b> : mentions obligatoires sur vos devis et factures. Laissez vide si non concerné.</p>
@@ -739,13 +747,18 @@ function clientForm(c){
 }
 
 /* ============ Rendu ============ */
-const NAV=[['accueil','Accueil','home','lemon'],['chantiers','Chantiers','site','lilac'],['devis','Devis','doc','sky'],['factures','Factures','inv','mint'],['clients','Clients','user','coral']];
-$('#side').innerHTML=`<a class="logo" href="#/accueil" aria-label="AUNE, accueil">${MARK}<span class="lb">AUNE</span></a><nav>${NAV.map(([k,l,i,c])=>`<a class="nv" href="#/${k}" data-n="${k}" aria-label="${l}" title="${l}"><span class="chip" style="background:var(--${c})">${ico(i)}</span><span class="lb">${l}</span></a>`).join('')}</nav><a class="nv set" href="#/reglages" data-n="reglages" aria-label="Réglages" title="Réglages"><span class="chip" style="background:var(--soft)">${ico('cog')}</span><span class="lb">Réglages</span></a>`;
+const NAV=[['accueil','Accueil','home','lemon'],['chantiers','','site','lilac'],['devis','Devis','doc','sky'],['factures','Factures','inv','mint'],['clients','Clients','user','coral']];
+let navVoc='';
+function drawNav(){
+navVoc=W().one;const nav=NAV.map(([k,l,i,c])=>[k,k==='chantiers'?Wcs():l,i,c]);
+$('#side').innerHTML=`<a class="logo" href="#/accueil" aria-label="AUNE, accueil">${MARK}<span class="lb">AUNE</span></a><nav>${nav.map(([k,l,i,c])=>`<a class="nv" href="#/${k}" data-n="${k}" aria-label="${l}" title="${l}"><span class="chip" style="background:var(--${c})">${ico(i)}</span><span class="lb">${l}</span></a>`).join('')}</nav><a class="nv set" href="#/reglages" data-n="reglages" aria-label="Réglages" title="Réglages"><span class="chip" style="background:var(--soft)">${ico('cog')}</span><span class="lb">Réglages</span></a>`;
 $('#mtop').innerHTML=`<a class="logo" href="#/accueil" style="padding:0">${MARK}AUNE</a><a class="gear" href="#/reglages" aria-label="Réglages">${ico('cog')}</a>`;
-$('#bottom').innerHTML=NAV.map(([k,l,i,c])=>`<a href="#/${k}" data-n="${k}" style="--c:var(--${c})"><span class="ib">${ico(i)}</span><span>${l}</span></a>`).join('');
+$('#bottom').innerHTML=nav.map(([k,l,i,c])=>`<a href="#/${k}" data-n="${k}" style="--c:var(--${c})"><span class="ib">${ico(i)}</span><span>${l}</span></a>`).join('');
+}
 function route(){const p=(location.hash.replace(/^#\/?/,'')||'accueil').split('/');return{name:p[0],id:p[1],tab:p[2]}}
 let lastKey='';
 function render(){
+  if(navVoc!==W().one)drawNav();
   const r=route();
   const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),abonnement:vReglages,clients:()=>r.id?vClient(r):vClients(),reglages:vReglages};
   const key=r.name+'/'+(r.id||'');
@@ -774,8 +787,8 @@ $('#main').addEventListener('animationend',e=>{if(e.target===e.currentTarget)e.c
 /* ============ Formulaires métier ============ */
 function chantierForm(c){
   const isNew=!c;c=c||{status:'en cours'};
-  form(isNew?'Nouveau chantier':'Modifier le chantier',[
-    {k:'name',l:'Nom du chantier',req:1,full:1,auto:1},{k:'client',l:'Client',list:clientNames()},{k:'address',l:'Adresse du chantier'},
+  form(isNew?'Nouveau '+W().one:'Modifier le '+W().one,[
+    {k:'name',l:'Nom du '+W().one,req:1,full:1,auto:1},{k:'client',l:'Client',list:clientNames()},{k:'address',l:'Adresse du '+W().one},
     {k:'phone',l:'Téléphone du client',t:'tel',more:1},{k:'status',l:'Statut',t:'select',o:STAT_C,more:1},
     {k:'start',l:'Début',t:'date',more:1},{k:'end',l:'Fin prévue',t:'date',more:1},
     {k:'budget',l:'Budget prévu (€ HT)',t:'number',more:1},{k:'notes',l:'Notes',t:'textarea',full:1,more:1}],c,
@@ -784,8 +797,8 @@ function chantierForm(c){
 }
 function lotForm(l,cid){
   const isNew=!l;l=l||{status:'à venir'};
-  form(isNew?'Nouveau corps de métier':'Modifier le corps de métier',[
-    {k:'trade',l:'Corps de métier',req:1,full:1,auto:1,list:TRADES},{k:'company',l:'Entreprise ou artisan'},{k:'phone',l:'Téléphone',t:'tel'},
+  form(isNew?'Nouveau '+W().lot:'Modifier : '+W().lot,[
+    {k:'trade',l:W().role,req:1,full:1,auto:1,list:TRADES},{k:'company',l:W().who},{k:'phone',l:'Téléphone',t:'tel'},
     {k:'status',l:'État',t:'select',o:STAT_L,more:1},{k:'budget',l:'Montant (€ HT)',t:'number',more:1},
     {k:'start',l:'Début',t:'date',more:1},{k:'end',l:'Fin',t:'date',more:1},
     {k:'contact',l:'Nom du contact',more:1},{k:'email',l:'E-mail',t:'email',more:1}],l,
@@ -808,7 +821,7 @@ function printDoc(d){
   $('#print').innerHTML=`<div class="pg"><div class="hd"><div><b style="font-size:16px">${esc(s.name||'Votre entreprise')}</b><br>${esc(s.legal)}${s.siret?'<br>SIRET '+esc(s.siret):''}<br>${esc(s.address)}<br>${esc(s.phone)} ${esc(s.email)}</div>
   <div style="text-align:right"><h1>${isD?'DEVIS':d.avoir?'AVOIR':'FACTURE'}</h1>N° ${esc(d.number)}<br>Date : ${fdate(d.date)}<br>${d.due?(isD?'Valable jusqu\'au ':'Échéance : ')+fdate(d.due):''}</div></div>
   <div style="margin-top:22px"><b>${isD?'Client':'Facturé à'}</b><br>${esc(d.clientName)}<br>${esc(d.clientAddress)}${d.clientType==='pro'&&d.clientSiren?`<br>SIREN : ${esc(d.clientSiren)}`:''}</div>
-  ${c?`<div style="margin-top:10px"><b>Chantier</b> : ${esc(c.name)}${c.address?' — '+esc(c.address):''}</div>`:''}
+  ${c?`<div style="margin-top:10px"><b>${Wc()}</b> : ${esc(c.name)}${c.address?' — '+esc(c.address):''}</div>`:''}
   <div style="margin-top:6px"><b>Nature de l'opération</b> : ${{services:'Prestation de services',biens:'Livraison de biens',mixte:'Livraison de biens et prestation de services'}[d.nature||'services']}</div>
   ${d.deliveryAddress?`<div style="margin-top:6px"><b>Adresse de livraison</b> : ${esc(d.deliveryAddress)}</div>`:''}
   <table><thead><tr><th>Désignation</th><th class="r">Qté</th><th>Unité</th><th class="r">PU HT</th><th class="r">Total HT</th></tr></thead><tbody>
@@ -895,7 +908,7 @@ function pdfModel(d,fx){
   return {title:isD?'DEVIS':d.avoir?'AVOIR':'FACTURE',number:d.number,date:fdate(d.date),due:(d.due&&!d.avoir)?fdate(d.due):'',dueLabel:isD?'Valable jusqu\'au :':'Échéance :',clientLabel:isD?'Client':d.avoir?'Avoir adressé à':'Facturé à',
     seller:{name:s.name,legal:s.legal,siret:s.siret,vatId:+d.tva?s.vatId:'',address:s.address,phone:s.phone,email:s.email},
     client:{name:d.clientName,address:d.clientAddress,siren:d.clientType==='pro'?d.clientSiren:''},
-    infos:[d.avoir?`Avoir relatif à la facture ${d.refNumber||''}${d.refDate?' du '+fdate(d.refDate):''}`:'',c?`Chantier : ${c.name}${c.address?' — '+c.address:''}`:'',`Nature de l'opération : ${nat}`,d.deliveryAddress?`Adresse de livraison : ${d.deliveryAddress}`:''].filter(Boolean),
+    infos:[d.avoir?`Avoir relatif à la facture ${d.refNumber||''}${d.refDate?' du '+fdate(d.refDate):''}`:'',c?`${Wc()} : ${c.name}${c.address?' — '+c.address:''}`:'',`Nature de l'opération : ${nat}`,d.deliveryAddress?`Adresse de livraison : ${d.deliveryAddress}`:''].filter(Boolean),
     lines:d.lines.filter(l=>l.desc||l.pu).map(l=>({desc:l.desc||'',qty:q(l.qty),unit:l.unit||'',pu:eur(+l.pu),total:eur(r2((+l.qty||0)*(+l.pu||0)))})),
     totals:[['Total HT',eur(ht(d))],[`TVA ${+d.tva||0} %`,eur(tva(d))],['Total TTC',eur(ttc(d)),1]].concat(!isD&&(+d.paid)?[[d.devisId?'Acomptes déjà réglés':'Déjà réglé',eur(+d.paid)],['Reste à payer',eur(reste(d)),1]]:[]),
     mentions:[franchise?['TVA non applicable, art. 293 B du CGI.']:null,(+d.tva&&d.tvaDebits)?['Option pour le paiement de la TVA d\'après les débits.']:null,d.notes?[d.notes]:null,
@@ -981,9 +994,9 @@ const actions={
   delClient:d=>{if(confirm('Supprimer cette fiche client ? Les devis et factures sont conservés.')){db.clients=db.clients.filter(c=>c.id!==d.id);save();$('#dlg').close();go('clients')}},
   newDocFor:d=>newDoc(d.type,'',clientById(d.id)),
   newChantier:()=>chantierForm(),editChantier:d=>chantierForm(ch(d.id)),
-  delChantier:d=>{if(confirm('Supprimer ce chantier et ses corps de métier ? Les devis et factures sont conservés.')){db.lots=db.lots.filter(l=>l.chantierId!==d.id);db.docs.forEach(x=>{if(x.chantierId===d.id)x.chantierId=''});db.chantiers=db.chantiers.filter(c=>c.id!==d.id);save();$('#dlg').close();go('chantiers')}},
+  delChantier:d=>{if(confirm('Supprimer ce '+W().one+' et ses '+W().lots+' ? Les devis et factures sont conservés.')){db.lots=db.lots.filter(l=>l.chantierId!==d.id);db.docs.forEach(x=>{if(x.chantierId===d.id)x.chantierId=''});db.chantiers=db.chantiers.filter(c=>c.id!==d.id);save();$('#dlg').close();go('chantiers')}},
   newLot:d=>lotForm(null,d.id),editLot:d=>lotForm(lot(d.id)),
-  delLot:d=>{if(confirm('Supprimer ce corps de métier ?')){db.lots=db.lots.filter(l=>l.id!==d.id);save();$('#dlg').close();render()}},
+  delLot:d=>{if(confirm('Supprimer ce '+W().lot+' ?')){db.lots=db.lots.filter(l=>l.id!==d.id);save();$('#dlg').close();render()}},
   cycleLot:d=>{const l=lot(d.id);l.status=STAT_L[(STAT_L.indexOf(l.status)+1)%STAT_L.length];save();ui.flash='lot:'+d.id;render()},
   newDoc:d=>newDoc(d.type,d.id),
   delDoc:d=>{const x0=doc(d.id);if(isLocked(x0)){toast('Une facture émise ne peut pas être supprimée : créez un avoir.');return}
@@ -1074,7 +1087,7 @@ document.addEventListener('change',e=>{
     if(sr)sr.value=d.clientSiren||'';
     syncPro(d);$('#warn').innerHTML=warnHtml(d);
   }
-  if(t.tagName==='SELECT'&&t.dataset.s){db.settings[t.dataset.s]=t.dataset.s==='tva'?+t.value:t.value;save()}
+  if(t.tagName==='SELECT'&&t.dataset.s){db.settings[t.dataset.s]=t.dataset.s==='tva'?+t.value:t.value;save();if(t.dataset.s==='vocab')render()}
 });
 document.addEventListener('input',e=>{
   const t=e.target;
@@ -1233,7 +1246,7 @@ async function syncNow(manual){
 function syConflict(srv){
   if(isBlank(db)){adopt(srv.data,srv.rev);toast('Données en ligne récupérées');return}
   syPending=srv;
-  const n=d=>{d=normalize(d);return `${d.chantiers.length} chantier${d.chantiers.length>1?'s':''}, ${d.docs.length} devis/factures`};
+  const n=d=>{d=normalize(d);return `${d.chantiers.length} ${d.chantiers.length>1?W().many:W().one}, ${d.docs.length} devis/factures`};
   const dlg=$('#dlg');
   dlg.innerHTML=`<div class="dform"><h2>Deux versions de vos données</h2><p>Cet appareil et la version en ligne sont différents. Laquelle garder ?</p>
   <p style="margin:0"><b>Cet appareil</b> : ${esc(n(db))}</p><p style="margin:4px 0 14px"><b>En ligne</b> (${esc(ago(srv.updated))}) : ${esc(n(srv.data))}</p>
