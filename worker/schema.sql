@@ -15,3 +15,8 @@ CREATE TABLE IF NOT EXISTS accounts (
   stripe_customer TEXT, stripe_sub TEXT, sub_status TEXT, sub_end INTEGER, interval TEXT, cancel INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS accounts_customer ON accounts(stripe_customer);
+
+-- Compteurs anonymes par jour (visites, premiers documents, installations) : aucun identifiant, aucun cookie.
+CREATE TABLE IF NOT EXISTS stats (
+  day TEXT NOT NULL, name TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, name)
+);

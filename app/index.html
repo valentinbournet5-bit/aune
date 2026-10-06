@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>AUNE · Devis, factures et projets</title>
+<meta name="robots" content="noindex">
 <meta name="theme-color" content="#f8f7f3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -176,6 +177,7 @@ dialog::backdrop{background:rgba(35,39,51,.45)}
 .line .desc{grid-column:1/-1;background:#fff}
 .line .ltot input{font-weight:750}
 .line .icon-btn{align-self:end;height:46px}
+.fbl{margin:26px 0 0;text-align:center}
 .gor{display:flex;align-items:center;gap:12px;margin:14px 0 10px;color:var(--muted);font-size:14px}.gor::before,.gor::after{content:"";flex:1;height:1px;background:var(--line)}
 .gbtn{min-height:44px;display:flex;justify-content:center}
 /* démarrage guidé */
@@ -495,7 +497,7 @@ function vAccueil(){
   const dateTxt=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
   if(!db.chantiers.length&&!db.docs.length){
     return head('Bonjour',dateTxt)+(startCard()||'')+quick+
-      (startDismissed()?`<div class="empty"><b>Rien pour l'instant</b>Commencez par un devis : il se transforme ensuite en facture en un clic.<div><button class="btn link" data-a="demo">Voir avec un exemple</button></div></div>`:'');
+      (startDismissed()?`<div class="empty"><b>Rien pour l'instant</b>Commencez par un devis : il se transforme ensuite en facture en un clic.<div><button class="btn link" data-a="demo">Voir avec un exemple</button></div></div>`:'')+`<p class="s fbl">Une idée ou un souci ? <button class="btn link" data-a="feedback">Donner mon avis</button></p>`;
   }
   const todo=[];
   db.docs.filter(isLate).forEach(d=>todo.push({d,w:0,msg:'En retard · échue le '+fdate(d.due)}));
@@ -514,7 +516,7 @@ function vAccueil(){
   `<div class="cols2"><div><div class="sec"><h2>À traiter</h2></div>`+
   (todo.length?`<div class="list">${todo.slice(0,6).map(x=>docRow(x.d,x.msg)).join('')}</div>`:`<div class="empty">Tout est à jour.</div>`)+
   `</div><div><div class="sec"><h2>${Wcs()} en cours</h2><a href="#/chantiers"><u>Tous</u></a></div>`+
-  (actifs.length?`<div class="list">${actifs.map(chantierRow).join('')}</div>`:`<div class="empty">Aucun ${W().one} en cours.</div>`)+`</div></div>`;
+  (actifs.length?`<div class="list">${actifs.map(chantierRow).join('')}</div>`:`<div class="empty">Aucun ${W().one} en cours.</div>`)+`</div></div>`+`<p class="s fbl">Une idée ou un souci ? <button class="btn link" data-a="feedback">Donner mon avis</button></p>`;
 }
 
 function listChantiers(){
@@ -694,6 +696,7 @@ function vReglages(){
   <a href="https://www.impots.gouv.fr/professionnel/questions/partir-de-quand-suis-je-concerne-par-la-reforme-de-la-facturation" target="_blank" rel="noopener"><u>Voir le calendrier officiel (impots.gouv.fr)</u></a></div>
   ${syCard()}
   ${installCard()}
+  <div class="card"><h2 style="margin-bottom:6px">Une idée, un souci ?</h2><p class="muted" style="margin-top:0">Dites-moi ce qui manque ou ce qui vous gêne : je lis tous les messages.</p><div class="actions"><button class="btn" data-a="feedback">Donner mon avis</button></div></div>
   <div class="card"><h2 style="margin-bottom:6px">Sauvegarde de mes données</h2><p class="muted" style="margin-top:0">${API?'Exportez de temps en temps un fichier : c\'est votre copie de secours.':'Vos données restent sur cet appareil. Exportez un fichier pour les sauvegarder ou les copier sur un autre appareil.'}</p>
   <div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</div></div>
   <p class="s" style="text-align:center;margin:6px 0 0"><a href="../mentions-legales.html"><u>Mentions légales</u></a> · <a href="../cgu.html"><u>Conditions</u></a> · <a href="../confidentialite.html"><u>Confidentialité</u></a> · <a href="../"><u>Site AUNE</u></a></p></div></div>`;
@@ -844,7 +847,7 @@ function newDoc(type,cid,cl){
     tva:s.tvaMode==='franchise'?0:+s.tva,status:'brouillon',notes:'',paid:0,clientType:'particulier',clientSiren:'',nature:'services',tvaDebits:false,deliveryAddress:'',lines:[{desc:'',qty:1,unit:'u',pu:0}]};
   if(cl)Object.assign(d,{clientId:cl.id,clientName:cl.name,clientAddress:cl.address||'',clientType:cl.type==='pro'?'pro':'particulier',clientSiren:cl.type==='pro'?cl.siren||'':''});
   else if(c&&c.client){const k=findClient(c.client);if(k)Object.assign(d,{clientId:k.id,clientType:k.type==='pro'?'pro':'particulier',clientSiren:k.type==='pro'?k.siren||'':''})}
-  db.docs.push(d);save();go((type==='devis'?'devis/':'factures/')+d.id);
+  db.docs.push(d);save();hit(type);if(lsGet('aune.first')!==1){lsSet('aune.first',1);hit('first_doc')}go((type==='devis'?'devis/':'factures/')+d.id);
 }
 
 /* ============ PDF (impression) ============ */
@@ -1040,6 +1043,7 @@ const actions={
   delLine:d=>{const x=doc(d.id);if(isLocked(x))return;x.lines.splice(+d.i,1);if(!x.lines.length)x.lines.push({desc:'',qty:1,unit:'u',pu:0});save();render()},
   printDoc:d=>printDoc(doc(d.id)),
   dl:d=>docDownload(doc(d.id)),dlRow:(d,e)=>{e.preventDefault();e.stopPropagation();docDownload(doc(d.id))},
+  feedback:()=>feedbackDlg(),feedbackSend:()=>feedbackSend(),
   hideStart:()=>{lsSet('aune.start',1);render()},
   install:()=>{if(installEv){const e=installEv;installEv=null;e.prompt();e.userChoice.finally(()=>render())}else installDlg()},
   send:d=>docSend(doc(d.id)),sendPlain:d=>{$('#dlg').close();docSend(doc(d.id),true)},
@@ -1224,7 +1228,7 @@ function syPaint(){const e=$('#syst');if(e)e.textContent=syState()}
 /* ============ Installation sur l'appareil ============ */
 let installEv=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEv=e;if(route().name==='reglages')render()});
-window.addEventListener('appinstalled',()=>{installEv=null;if(route().name==='reglages')render()});
+window.addEventListener('appinstalled',()=>{hit('install');installEv=null;if(route().name==='reglages')render()});
 const isInstalled=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
 function installCard(){
   if(isInstalled())return '';
@@ -1328,6 +1332,25 @@ async function gsiDone(resp){
     else toast('Connexion Google impossible : réessayez ou utilisez le lien par e-mail')
   }catch(e){toast('Pas de réseau pour le moment')}
 }
+/* Mesure anonyme (compteurs par jour, sans cookie ni identifiant) et avis des utilisateurs */
+const hit=e=>{try{if(!API||navigator.doNotTrack==='1')return;fetch(API+'/api/hit',{method:'POST',body:JSON.stringify({e}),keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(()=>{})}catch(x){}};
+function feedbackDlg(){
+  const dlg=$('#dlg');
+  dlg.innerHTML=`<div class="dform"><h2>Votre avis</h2><p class="muted" style="margin:0 0 10px">Une idée, un souci, une question ? Je lis tout.</p><label class="f"><span>Message</span><textarea id="fbMsg" rows="5" placeholder="Ce qui manque, ce qui vous gêne, ce qui vous plaît…" style="width:100%"></textarea></label><label class="f"><span>Votre e-mail (facultatif, pour vous répondre)</span><input type="email" id="fbMail" autocomplete="email" value="${esc(sy.e||'')}"></label><div class="frow"><button type="button" class="btn" data-a="closeDlg">Annuler</button><button type="button" class="btn primary" data-a="feedbackSend">Envoyer</button></div></div>`;
+  dlg.showModal();setTimeout(()=>{const m=$('#fbMsg');if(m)m.focus()},50);
+}
+async function feedbackSend(){
+  const msg=($('#fbMsg')||{}).value||'',mail=($('#fbMail')||{}).value||'';
+  if(msg.trim().length<3){toast('Écrivez quelques mots');return}
+  const viaMail=()=>{location.href='mailto:contact@aune.app?subject='+encodeURIComponent('Avis AUNE')+'&body='+encodeURIComponent(msg+(mail?'\n\n'+mail:''));toast('Votre application de messagerie s\'ouvre')};
+  if(!API){viaMail();return}
+  try{
+    const r=await fetch(API+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,email:mail,page:location.hash,ua:navigator.userAgent})});
+    if(r.ok){$('#dlg').close();toast('Merci ! Votre avis est bien reçu')}
+    else if(r.status===429)toast('Trop d\'avis aujourd\'hui : écrivez à contact@aune.app');
+    else viaMail();
+  }catch(e){viaMail()}
+}
 async function syLogout(){
   try{await syApi('/api/logout','POST')}catch(e){}
   sy={};syKeep();toast('Déconnecté. Vos données restent sur cet appareil');render();
@@ -1354,6 +1377,7 @@ window.addEventListener('online',()=>syncNow());
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){syncNow()}else if(sy.dirty){clearTimeout(syT);syncNow()}});
 
 render();
+try{if(!sessionStorage.getItem('aune.hit')){sessionStorage.setItem('aune.hit','1');hit('app')}}catch(e){}
 checkLink();checkAbo();syncNow();if(route().name==='reglages'&&sy.s)meRefresh();
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>

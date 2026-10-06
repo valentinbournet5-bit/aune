@@ -1,5 +1,5 @@
 // AUNE : API de comptes (lien magique ou Google) et de synchronisation.
-// Secrets : RESEND_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. Variables : APP_URL, MAIL_FROM, STRIPE_PRICE_MONTH, STRIPE_PRICE_YEAR. Base D1 : DB.
+// Secrets : RESEND_API_KEY, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET. Variables : APP_URL, MAIL_FROM, STRIPE_PRICE_MONTH, STRIPE_PRICE_YEAR, FEEDBACK_TO (facultatif). Base D1 : DB.
 // Formules : gratuit (appli locale) et Pro (synchronisation, Factur-X, suivi du CA) : 30 jours d'essai à la création du compte, puis abonnement Stripe.
 // Les données ne sont jamais bloquées : un compte non Pro peut toujours LIRE ses données en ligne, seule l'écriture (synchronisation) est réservée au Pro.
 // Option de test uniquement : DEV_ECHO=1 renvoie le lien dans la réponse (ne jamais l'activer en production).
@@ -80,6 +80,15 @@ async function googleEmail(env, idToken, now) {
     const email = String(c.email || '').trim().toLowerCase();
     return EMAIL_RE.test(email) ? email : null;
   } catch { return null; }
+}
+
+
+/* ---------- Compteurs anonymes (audience) ---------- */
+const HIT_EVENTS = ['site', 'app', 'first_doc', 'devis', 'facture', 'install'];
+async function bump(env, name, now) {
+  try {
+    await env.DB.prepare('INSERT INTO stats(day,name,n) VALUES(?,?,1) ON CONFLICT(day,name) DO UPDATE SET n=n+1').bind(new Date(now).toISOString().slice(0, 10), name).run();
+  } catch { /* table absente : la mesure est facultative */ }
 }
 
 /* ---------- Comptes et formules ---------- */
@@ -172,6 +181,38 @@ export default {
       const s = token();
       await env.DB.prepare('INSERT INTO sessions(hash,email,created) VALUES(?,?,?)').bind(await sha(s), email, now).run();
       return json(env, req, { session: s, email });
+    }
+
+    // Mesure d'audience anonyme : de simples compteurs par jour (aucun cookie, aucun identifiant, aucune adresse IP conservée).
+    if (path === '/api/hit' && req.method === 'POST') {
+      const b = await readJson(req), e = String(b && b.e || '');
+      if (HIT_EVENTS.includes(e) && req.headers.get('Origin') === new URL(env.APP_URL).origin) await bump(env, e, now);
+      return new Response(null, { status: 204, headers: cors(env, req) });
+    }
+
+    // Avis des utilisateurs : envoyé par e-mail à l'adresse de contact (plafond de 30 par jour contre les abus).
+    if (path === '/api/feedback' && req.method === 'POST') {
+      const b = await readJson(req);
+      const msg = String(b && b.message || '').trim().slice(0, 3000), from = String(b && b.email || '').trim().slice(0, 200);
+      if (msg.length < 3 || b.website) return json(env, req, { error: 'message' }, 400);
+      if (req.headers.get('Origin') !== new URL(env.APP_URL).origin) return json(env, req, { error: 'origine' }, 403);
+      const day = new Date(now).toISOString().slice(0, 10);
+      try {
+        const c = await env.DB.prepare('SELECT n FROM stats WHERE day=? AND name=?').bind(day, 'feedback_sent').first();
+        if (c && c.n >= 30) return json(env, req, { error: 'trop' }, 429);
+      } catch { /* table absente : on laisse passer */ }
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: env.MAIL_FROM, to: [env.FEEDBACK_TO || 'contact@aune.app'], subject: 'Avis AUNE',
+          ...(EMAIL_RE.test(from) ? { reply_to: from } : {}),
+          text: `${msg}\n\n---\nE-mail laissé : ${from || '(aucun)'}\nPage : ${String(b.page || '').slice(0, 100)}\nAppareil : ${String(b.ua || '').slice(0, 160)}`
+        })
+      });
+      if (!r.ok) return json(env, req, { error: 'mail' }, 502);
+      await bump(env, 'feedback_sent', now);
+      return json(env, req, { ok: true });
     }
 
     // Webhook Stripe : authentifié par la signature, pas par une session.

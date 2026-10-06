@@ -32,7 +32,18 @@ MARK = ('<svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64
         '<path d="M16 46 L32 16 L48 46" fill="none" stroke="#232733" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'
         '<path d="M18 53h28" stroke="#fff" stroke-width="4" stroke-dasharray="2 5"/></svg>')
 
-def head(title, desc, extra=''):
+SITE='https://aune.app/'
+def head(title, desc, extra='', path=None):
+    seo = ''
+    if path is not None:
+        seo = f'''<link rel="canonical" href="{SITE}{path}">
+<meta property="og:site_name" content="AUNE"><meta property="og:locale" content="fr_FR"><meta property="og:type" content="website">
+<meta property="og:url" content="{SITE}{path}"><meta property="og:title" content="{title}"><meta property="og:description" content="{desc}">
+<meta property="og:image" content="{SITE}img/og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+'''
+    else:
+        seo = '<meta name="robots" content="noindex">\n'
     return f'''<!doctype html>
 <html lang="fr">
 <head>
@@ -43,7 +54,7 @@ def head(title, desc, extra=''):
 <meta name="theme-color" content="#f8f7f3">
 <link rel="icon" href="app/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
-{extra}</head>
+{seo}{extra}</head>
 <body>
 {SPRITE}
 '''
@@ -82,13 +93,12 @@ if(hero&&st&&'IntersectionObserver' in window){new IntersectionObserver(function
 </script>
 """
 
-INDEX = head("AUNE : devis, factures et chantiers pour artisans",
-  "Devis, factures, chantiers et facture électronique pour artisans et auto-entrepreneurs. Sur téléphone et ordinateur, gratuit pour commencer.",
-  '''<meta property="og:title" content="AUNE : le devis est fait sur place, la facture en un clic">
-<meta property="og:description" content="Devis, factures, chantiers et facture électronique pour artisans. Gratuit pour commencer.">
-<meta property="og:image" content="img/desktop.webp"><meta property="og:type" content="website">
-<script>document.documentElement.className="js";if(/^#\\/(connexion|abonnement|reglages|accueil|chantiers?|devis|factures|clients|planning)/.test(location.hash))location.replace("app/"+location.hash);</script>
-''') + HEADER + f'''
+INDEX = head("AUNE : devis, factures et suivi de projets pour indépendants",
+  "Devis, factures et suivi de projets pour artisans, indépendants et auto-entrepreneurs. Sur téléphone et ordinateur, même sans réseau. Gratuit pour commencer.",
+  '''<script>document.documentElement.className="js";if(/^#\\/(connexion|abonnement|reglages|accueil|chantiers?|devis|factures|clients|planning)/.test(location.hash))location.replace("app/"+location.hash);</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"AUNE","url":"https://aune.app/","applicationCategory":"BusinessApplication","operatingSystem":"Web, iOS, Android, Windows, macOS","inLanguage":"fr","description":"Devis, factures et suivi de projets pour artisans, indépendants et auto-entrepreneurs.","offers":[{"@type":"Offer","name":"Gratuit","price":"0","priceCurrency":"EUR"},{"@type":"Offer","name":"Pro mensuel","price":"9","priceCurrency":"EUR"},{"@type":"Offer","name":"Pro annuel","price":"90","priceCurrency":"EUR"}]}</script>
+<script>(function(){try{if(navigator.doNotTrack==='1'||sessionStorage.getItem('aune.site'))return;sessionStorage.setItem('aune.site','1');fetch('https://aune.valentinbournet5.workers.dev/api/hit',{method:'POST',body:'{"e":"site"}',keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(function(){})}catch(e){}})();</script>
+''', path='') + HEADER + f'''
 <main>
 <section class="bh"><div class="wrap">
 <span class="kicker an" style="--d:0"><i>{ic('check')}</i>Factur-X inclus, envoi aux plateformes agréées bientôt</span>
@@ -154,7 +164,7 @@ for fn, title in [('mentions-legales.html', 'Mentions légales'), ('cgu.html', "
     p = os.path.join(ROOT, fn)
     m = re.search(r'<main class="wrap legal">(.*)</main>', open(p).read(), re.S)
     if not m: raise SystemExit('contenu introuvable dans ' + fn)
-    page = head(title + ' · AUNE', title) + HEADER + '<main class="wrap legal">' + m.group(1) + '</main>\n' + FOOTER
+    page = head(title + ' · AUNE', title, '', fn) + HEADER + '<main class="wrap legal">' + m.group(1) + '</main>\n' + FOOTER
     open(p, 'w').write(page)
 
 page404 = head('Page introuvable · AUNE', 'Page introuvable', '<base href="/">\n') + HEADER + (
@@ -162,3 +172,10 @@ page404 = head('Page introuvable · AUNE', 'Page introuvable', '<base href="/">\
     '<p><a class="btn primary" href="./">Retour à l\'accueil</a> <a class="btn" href="app/">Ouvrir l\'appli</a></p></main>\n') + FOOTER
 open(os.path.join(ROOT, '404.html'), 'w').write(page404)
 print('site régénéré')
+
+import datetime
+today = datetime.date.today().isoformat()
+urls = ['', 'mentions-legales.html', 'cgu.html', 'confidentialite.html']
+open(os.path.join(ROOT, 'sitemap.xml'), 'w').write('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + ''.join(f'<url><loc>{SITE}{u}</loc><lastmod>{today}</lastmod></url>\n' for u in urls) + '</urlset>\n')
+open(os.path.join(ROOT, 'robots.txt'), 'w').write(f'User-agent: *\nAllow: /\n\nSitemap: {SITE}sitemap.xml\n')
+print('sitemap et robots générés')

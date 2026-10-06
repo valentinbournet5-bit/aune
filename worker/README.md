@@ -54,3 +54,13 @@ Sur votre ordinateur, avec Node.js installé, dans le dossier `worker/` :
 - Bouton « Continuer avec Google » : l'appli reçoit un jeton de Google, le Worker (`POST /api/google`) vérifie sa signature avec les clés publiques de Google, l'audience (identifiant client), l'émetteur, l'expiration et `email_verified`, puis ouvre une session pour cette adresse. Même compte que le lien magique (clé : e-mail).
 - Identifiant client (public) : constante `GOOGLE_CLIENT_ID` dans `src/index.js` (surchargeable par une variable `GOOGLE_CLIENT_ID`). Aucun secret n'est nécessaire.
 - Console Google Cloud : client OAuth « Application Web », origine JavaScript autorisée `https://aune.app`, écran de consentement publié en production.
+
+## Avis et mesure d'audience
+
+- `POST /api/feedback` : un avis envoyé depuis l'appli (« Donner mon avis ») arrive par e-mail à `contact@aune.app` (variable facultative `FEEDBACK_TO`), via Resend. Plafond de 30 avis par jour, origine contrôlée, champ piège anti-robot.
+- `POST /api/hit` : compteurs anonymes par jour (`site`, `app`, `first_doc`, `devis`, `facture`, `install`). Aucun cookie, aucun identifiant, aucune adresse IP conservée ; ignoré si le navigateur envoie « Ne pas me suivre ».
+- Table à créer une fois dans la console D1 : `CREATE TABLE IF NOT EXISTS stats (day TEXT NOT NULL, name TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, name));`
+- Lire les chiffres (console D1) :
+  - par jour : `SELECT day, name, n FROM stats ORDER BY day DESC, name;`
+  - totaux : `SELECT name, SUM(n) AS total FROM stats GROUP BY name;`
+  - comptes créés : `SELECT COUNT(*) FROM accounts;`
