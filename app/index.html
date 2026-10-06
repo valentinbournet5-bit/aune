@@ -176,6 +176,8 @@ dialog::backdrop{background:rgba(35,39,51,.45)}
 .line .desc{grid-column:1/-1;background:#fff}
 .line .ltot input{font-weight:750}
 .line .icon-btn{align-self:end;height:46px}
+.gor{display:flex;align-items:center;gap:12px;margin:14px 0 10px;color:var(--muted);font-size:14px}.gor::before,.gor::after{content:"";flex:1;height:1px;background:var(--line)}
+.gbtn{min-height:44px;display:flex;justify-content:flex-start}
 .mini{display:grid;gap:3px;font-size:12.5px;color:var(--muted);font-weight:600}
 .mini input{background:#fff}
 .row .rside{display:grid;justify-items:end;gap:4px}
@@ -781,6 +783,7 @@ function render(){
     else if(f==='st')el=$('.sumtop .pill');
     if(el)el.classList.add('pop');
   }
+  if(typeof gsiMount==='function')gsiMount();
 }
 const go=h=>{if(location.hash==='#/'+h)render();else location.hash='#/'+h};
 window.addEventListener('hashchange',render);
@@ -1168,8 +1171,8 @@ function proDlg(what){
   const dlg=$('#dlg');
   dlg.innerHTML=`<div class="dform"><h2>${esc(what)} : fonction Pro</h2><ul style="margin:0 0 10px;padding-left:20px"><li>Synchronisation sur tous vos appareils</li><li>Facture électronique Factur-X (obligatoire en 2027 pour vos clients professionnels)</li><li>Suivi du chiffre d'affaires, plafond et livre des recettes</li></ul><p style="margin:0 0 12px"><b>9 €/mois</b> ou <b>90 €/an</b>. 30 jours d'essai offerts, sans carte bancaire.</p>`+
   (sy.s?(sy.me&&sy.me.canBuy?`<div class="frow" style="flex-wrap:wrap"><button type="button" class="btn" data-a="closeDlg">Plus tard</button><button type="button" class="btn" data-a="subscribe" data-interval="year">90 €/an</button><button type="button" class="btn primary" data-a="subscribe" data-interval="month">9 €/mois</button></div>`:`<div class="frow"><button type="button" class="btn primary" data-a="closeDlg">Compris</button></div>`)
-   :`<label class="f"><span>Votre e-mail</span><input type="email" id="proEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label><div class="frow" style="flex-wrap:wrap"><button type="button" class="btn" data-a="closeDlg">Plus tard</button><button type="button" class="btn primary" data-a="syLogin">Essayer 30 jours gratuitement</button></div>`)+`</div>`;
-  dlg.showModal();
+   :`<label class="f"><span>Votre e-mail</span><input type="email" id="proEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label><div class="frow" style="flex-wrap:wrap"><button type="button" class="btn" data-a="closeDlg">Plus tard</button><button type="button" class="btn primary" data-a="syLogin">Essayer 30 jours gratuitement</button></div><div class="gor"><span>ou</span></div><div class="gbtn" aria-label="Continuer avec Google"></div>`)+`</div>`;
+  dlg.showModal();gsiMount();
 }
 async function checkout(interval){
   try{const {status,j}=await syApi('/api/checkout','POST',{interval});
@@ -1209,7 +1212,7 @@ function installDlg(){
 function syCard(){
   if(!API)return '';
   if(sy.s)return `<div class="card"><h2 style="margin-bottom:6px">Mon compte</h2><p class="muted" style="margin-top:0">Connecté : <b>${esc(sy.e)}</b><br><span id="syst">${esc(syState())}</span></p>${planBlock()}<div class="actions"><button class="btn" data-a="syNow">Synchroniser maintenant</button><button class="btn" data-a="syOut">Se déconnecter</button></div><p class="s" style="margin:12px 0 0"><button class="btn link" data-a="syDelete" style="color:var(--coral-d);min-height:0;padding:0">Supprimer mon compte et mes données en ligne</button></p></div>`;
-  return `<div class="card"><h2 style="margin-bottom:6px">Essayer Pro gratuitement</h2><p class="muted" style="margin-top:0">30 jours offerts, sans carte bancaire : synchronisation sur tous vos appareils, facture électronique Factur-X, suivi du chiffre d'affaires. Entrez votre e-mail : vous recevez un lien de connexion, sans mot de passe.</p><div class="fgrid"><label class="f full">E-mail<input type="email" id="syEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label></div><div class="actions"><button class="btn primary" data-a="syLogin">Recevoir mon lien</button></div><p class="s" style="margin:10px 0 0">Sans compte, l'appli reste entièrement utilisable et gratuite sur cet appareil.</p></div>`;
+  return `<div class="card"><h2 style="margin-bottom:6px">Essayer Pro gratuitement</h2><p class="muted" style="margin-top:0">30 jours offerts, sans carte bancaire : synchronisation sur tous vos appareils, facture électronique Factur-X, suivi du chiffre d'affaires. Entrez votre e-mail : vous recevez un lien de connexion, sans mot de passe.</p><div class="fgrid"><label class="f full">E-mail<input type="email" id="syEmail" autocomplete="email" inputmode="email" placeholder="vous@exemple.fr"></label></div><div class="actions"><button class="btn primary" data-a="syLogin">Recevoir mon lien</button></div><div class="gor"><span>ou</span></div><div class="gbtn" aria-label="Continuer avec Google"></div><p class="s" style="margin:10px 0 0">Sans compte, l'appli reste entièrement utilisable et gratuite sur cet appareil.</p></div>`;
 }
 async function syApi(path,method,body){
   const r=await fetch(API+path,{method,headers:{'Content-Type':'application/json',...(sy.s?{Authorization:'Bearer '+sy.s}:{})},body:body?JSON.stringify(body):undefined});
@@ -1267,6 +1270,34 @@ async function syLogin(){
     const {status,j}=await syApi('/api/login','POST',{email});
     if(status===200){if($('#proEmail'))$('#dlg').close();toast('Lien envoyé : ouvrez votre e-mail');if(j.link)console.info('[test] '+j.link)}
     else toast(status===429?'Trop de demandes : réessayez dans une heure':'Envoi impossible pour le moment');
+  }catch(e){toast('Pas de réseau pour le moment')}
+}
+/* Connexion avec Google (Google Identity Services). Le script de Google n'est chargé que si l'on affiche le bouton. */
+const GOOGLE_CLIENT_ID='137550705473-tp916he0pcssvu9h3e14o5ab3k5di856.apps.googleusercontent.com'; // identifiant public
+let gsiState=0;
+function gsiMount(){
+  if(!API)return;
+  const els=[...document.querySelectorAll('.gbtn')].filter(e=>!e.dataset.done);
+  if(!els.length||sy.s)return;
+  const draw=()=>els.forEach(e=>{
+    if(!window.google||!google.accounts||e.dataset.done)return;
+    e.dataset.done='1';
+    google.accounts.id.renderButton(e,{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'pill',logo_alignment:'left',locale:'fr',width:Math.max(200,Math.min(400,e.clientWidth||320))});
+  });
+  if(gsiState===2){draw();return}
+  if(gsiState===1)return;
+  gsiState=1;
+  loadJs('https://accounts.google.com/gsi/client').then(()=>{
+    google.accounts.id.initialize({client_id:GOOGLE_CLIENT_ID,callback:gsiDone,auto_select:false,use_fedcm_for_prompt:true});
+    gsiState=2;draw();
+  }).catch(()=>{gsiState=0;document.querySelectorAll('.gbtn,.gor').forEach(e=>e.remove())});
+}
+async function gsiDone(resp){
+  if(!resp||!resp.credential)return;
+  try{
+    const {status,j}=await syApi('/api/google','POST',{credential:resp.credential});
+    if(status===200){if($('#dlg').open)$('#dlg').close();sy={s:j.session,e:j.email,rev:0,dirty:!isBlank(db)};syKeep();await meRefresh();toast('Connecté');render();syncNow()}
+    else toast('Connexion Google impossible : réessayez ou utilisez le lien par e-mail')
   }catch(e){toast('Pas de réseau pour le moment')}
 }
 async function syLogout(){
