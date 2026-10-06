@@ -1,4 +1,4 @@
-const C = 'aune-v20';
+const C = 'aune-v21';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon.svg', './fx-pdf.js', './fx-fonts.js'];
 
 self.addEventListener('install', e => {
