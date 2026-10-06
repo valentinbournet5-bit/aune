@@ -84,7 +84,7 @@ if(hero&&st&&'IntersectionObserver' in window){new IntersectionObserver(function
 
 INDEX = head("AUNE : devis, factures et chantiers pour artisans",
   "Devis, factures, chantiers et facture électronique pour artisans et auto-entrepreneurs. Sur téléphone et ordinateur, gratuit pour commencer.",
-  '''<meta property="og:title" content="AUNE : le devis est fait avant de quitter le chantier">
+  '''<meta property="og:title" content="AUNE : le devis est fait sur place, la facture en un clic">
 <meta property="og:description" content="Devis, factures, chantiers et facture électronique pour artisans. Gratuit pour commencer.">
 <meta property="og:image" content="img/desktop.webp"><meta property="og:type" content="website">
 <script>document.documentElement.className="js";if(/^#\\/(connexion|abonnement|reglages|accueil|chantiers?|devis|factures|clients|planning)/.test(location.hash))location.replace("app/"+location.hash);</script>
@@ -92,7 +92,7 @@ INDEX = head("AUNE : devis, factures et chantiers pour artisans",
 <main>
 <section class="bh"><div class="wrap">
 <span class="kicker an" style="--d:0"><i>{ic('check')}</i>Factur-X inclus, envoi aux plateformes agréées bientôt</span>
-<h1 class="an" style="--d:1">Le <mark>devis</mark> est fait avant de quitter le <mark>chantier</mark>.</h1>
+<h1 class="an" style="--d:1">Le devis est fait <mark>sur place</mark>.<br>La&nbsp;facture, <mark>en un clic</mark>.</h1>
 <p class="lead an" style="--d:2">Devis, factures et projets. Sur téléphone et ordinateur, même sans réseau.</p>
 <div class="cta an" style="--d:3"><a class="btn primary" href="app/">Essayer gratuitement {ic('arrow')}</a><a class="btn white" href="#tarifs">Voir les tarifs</a></div>
 <div class="bstage">
