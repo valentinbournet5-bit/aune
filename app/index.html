@@ -181,16 +181,32 @@ dialog::backdrop{background:rgba(35,39,51,.45)}
 .fbl{margin:26px 0 0;text-align:center}
 .rg .fgrid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));align-items:end}
 @media(max-width:560px){.rg .fgrid{grid-template-columns:1fr}}
-.card.rows{padding:4px 20px}
-.rowd{border-top:1px solid var(--line)}.rowd:first-child{border-top:0}
-.rowd>summary{display:flex;align-items:center;gap:12px;padding:15px 0;cursor:pointer;list-style:none}
-.rowd>summary::-webkit-details-marker{display:none}
-.rowd>summary b{font-weight:700;white-space:nowrap}
-.rowd>summary .pv{flex:1;min-width:0;text-align:right;color:var(--muted);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rowd>summary::after{content:"›";font-size:22px;line-height:1;color:var(--muted);transition:transform .2s;flex:none}
-.rowd[open]>summary::after{transform:rotate(90deg)}
-.rowd .rdb{padding:0 0 18px}
-.rowd.fxi{background:none}
+/* Réglages : liste + détail */
+.rg2{display:grid;grid-template-columns:310px minmax(0,1fr);gap:28px;align-items:start}
+.rgl{padding:8px;position:sticky;top:20px}
+.rgi{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:14px;color:var(--ink);text-decoration:none}
+.rgi:hover{background:var(--soft)}
+.rgi.on{background:var(--soft);box-shadow:inset 3px 0 0 var(--ink)}
+.rgc{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none}
+.rgt{display:grid;min-width:0;flex:1}.rgt b{font-weight:700}
+.rgt small{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rgdot{width:10px;height:10px;border-radius:50%;background:var(--coral);flex:none}
+.rgch{color:var(--muted);font-size:22px;line-height:1;display:none}
+.rgback{display:none}
+.rgh{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.rgh h2{font-size:22px;font-weight:800}
+.rgsaved{color:var(--mint-d);font-weight:700;font-size:14px;opacity:0;transition:opacity .25s}
+.rgsaved.on{opacity:1}
+.rgbody{margin-top:14px;padding:22px}
+.rgraw{margin-top:14px}
+@media(max-width:820px){
+ .rg2{grid-template-columns:1fr}
+ .rgl{position:static}.rgch{display:block}
+ .rg2[data-view=list] .rgd{display:none}
+ .rg2[data-view=detail] .rgl{display:none}
+ .rgback{display:inline-block;margin-bottom:10px}
+ .rg2[data-view=list] .rgi.on{background:none;box-shadow:none}
+}
 .approws{display:grid;margin-top:6px}
 .arow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
 .arow:first-child{border-top:0}
@@ -535,7 +551,7 @@ function vAccueil(){
   return head('Bonjour',dateTxt)+startCard()+quick+
   `<div class="kpis">${kpi('mint','À encaisser',eur(aEnc),'#/factures')}${kpi('coral','En retard',eur(late),'#/factures')}${kpi('sky','Devis en attente',eur(att),'#/devis')}${kpi('lilac',Wcs()+' en cours',actifs.length,'#/chantiers')}</div>`+
   (backupDue()?`<div class="notice">${bkAge()} <button class="btn link" data-a="export">Exporter maintenant</button></div>`:'')+
-  (!s.name&&startDismissed()?`<div class="notice">Ajoutez le nom de votre entreprise pour qu'il figure sur vos devis. <a href="#/reglages"><u>Ouvrir les réglages</u></a></div>`:'')+
+  (!s.name&&startDismissed()?`<div class="notice">Ajoutez le nom de votre entreprise pour qu'il figure sur vos devis. <a href="#/reglages/entreprise"><u>Ouvrir les réglages</u></a></div>`:'')+
   `<div class="cols2"><div><div class="sec"><h2>À traiter</h2></div>`+
   (todo.length?`<div class="list">${todo.slice(0,6).map(x=>docRow(x.d,x.msg)).join('')}</div>`:`<div class="empty">Tout est à jour.</div>`)+
   `</div><div><div class="sec"><h2>${Wcs()} en cours</h2><a href="#/chantiers"><u>Tous</u></a></div>`+
@@ -697,36 +713,65 @@ function vPlanning(){
    :empty('Rien à afficher','Ajoutez des dates à vos '+W().lots+' pour les voir ici.',`<a class="btn primary" href="#/chantiers">Voir les ${W().many}</a>`));
 }
 
-function vReglages(){
-  const s=db.settings,yr=new Date().getFullYear(),f=(k,l,t,full)=>`<label class="f ${full?'full':''}">${l}<input type="${t||'text'}" data-s="${k}" value="${esc(s[k])}"></label>`;
-  const card=(title,sub,body,id)=>`<div class="card"${id?` id="${id}"`:''}><h2>${title}</h2>${sub?`<p class="muted small" style="margin:4px 0 0">${sub}</p>`:''}<div class="rg" style="margin-top:14px">${body}</div></div>`;
-  const row=(k,title,preview,body)=>`<details class="rowd" data-k="${k}" ${ui.rgo&&ui.rgo[k]?'open':''}><summary><b>${title}</b><span class="pv">${esc(preview)}</span></summary><div class="rg rdb">${body}</div></details>`;
+/* Réglages : liste des rubriques + détail (sur téléphone : on touche une rubrique, elle s'ouvre) */
+function rgSections(){
+  const s=db.settings,yr=new Date().getFullYear(),m=sy.me||{};
+  const f=(k,l,t,full)=>`<label class="f ${full?'full':''}">${l}<input type="${t||'text'}" data-s="${k}" value="${esc(s[k])}"></label>`;
   const insShort=s.insName?`${s.insKind.split(' et ')[0]} · ${s.insName}`:'Non renseignée';
-  const fx=`<details class="rowd fxi" data-k="fx" ${ui.rgo&&ui.rgo.fx?'open':''}><summary><b>Facture électronique : ce qui arrive</b><span class="pv"></span></summary><div class="rdb"><p style="margin:0 0 8px">Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du <b>1er septembre 2027</b>, les TPE, PME et micro-entreprises devront aussi en émettre, par une plateforme agréée.</p>
-    <p class="s" style="margin:0 0 8px">AUNE prépare déjà les nouvelles mentions : type de client, SIREN, nature de l'opération, TVA sur les débits, adresse de livraison. L'envoi par plateforme agréée viendra dans une prochaine version.</p>
-    <a href="https://www.impots.gouv.fr/professionnel/questions/partir-de-quand-suis-je-concerne-par-la-reforme-de-la-facturation" target="_blank" rel="noopener"><u>Voir le calendrier officiel (impots.gouv.fr)</u></a></div></details>`;
-  const left=[
-    card('Mon entreprise','Ces informations apparaissent sur vos devis et vos factures.',`<div class="fgrid">${f('name','Nom de l\'entreprise',null,true)}${f('legal','Forme juridique (ex. EI, SARL)')}${f('siret','SIRET')}${f('address','Adresse',null,true)}${f('phone','Téléphone','tel')}${f('email','E-mail','email')}</div>`),
-    card('TVA et paiement',null,`<div class="fgrid"><label class="f full">Régime de TVA<select data-s="tvaMode"><option value="franchise" ${s.tvaMode==='franchise'?'selected':''}>Auto-entrepreneur : TVA non applicable (art. 293 B du CGI)</option><option value="assujetti" ${s.tvaMode==='assujetti'?'selected':''}>Assujetti à la TVA</option></select></label>
+  const plan=!sy.s?'Non connecté':(isPro()?(m.source==='subscription'?'Formule Pro':'Essai Pro'):'Formule gratuite');
+  return [
+   {k:'entreprise',t:'Mon entreprise',ic:'site',c:'lilac',dot:!s.name,
+    pv:()=>s.name?`${s.name}${s.siret?' · SIRET renseigné':' · SIRET à ajouter'}`:'À renseigner : nom, SIRET, adresse',
+    sub:'Ces informations apparaissent sur vos devis et vos factures.',
+    body:()=>`<div class="fgrid">${f('name','Nom de l\'entreprise',null,true)}${f('legal','Forme juridique (ex. EI, SARL)')}${f('siret','SIRET')}${f('address','Adresse',null,true)}${f('phone','Téléphone','tel')}${f('email','E-mail','email')}</div>`},
+   {k:'tva',t:'TVA et paiement',ic:'inv',c:'mint',
+    pv:()=>`${s.tvaMode==='franchise'?'TVA non applicable':'TVA '+s.tva+' %'} · ${s.iban?'IBAN renseigné':'pas d\'IBAN'}`,
+    sub:'Affiché sur vos devis et vos factures.',
+    body:()=>`<div class="fgrid"><label class="f full">Régime de TVA<select data-s="tvaMode"><option value="franchise" ${s.tvaMode==='franchise'?'selected':''}>Auto-entrepreneur : TVA non applicable (art. 293 B du CGI)</option><option value="assujetti" ${s.tvaMode==='assujetti'?'selected':''}>Assujetti à la TVA</option></select></label>
       <label class="f">Taux de TVA par défaut<select data-s="tva">${[5.5,10,20].map(x=>`<option value="${x}" ${+s.tva===x?'selected':''}>${x} %</option>`).join('')}</select></label>${f('vatId','N° de TVA intracommunautaire')}
       ${f('iban','IBAN (affiché sur les factures)',null,true)}${f('acomptePct','Acompte proposé sur les devis (%)','number')}
-      <label class="f full">Conditions de paiement<textarea rows="3" data-s="conditions">${esc(s.conditions)}</textarea></label></div>`)];
-  const right=[
-    `<div id="acct">${syCard()}</div>`,
-    `<div class="card"><h2>Application</h2><div class="approws">
-      <div class="arow"><span>Vocabulaire</span><select data-s="vocab" aria-label="Vocabulaire">${Object.keys(VOC).map(k=>`<option value="${k}" ${W()===VOC[k]?'selected':''}>${cap(VOC[k].one)}${k==='projet'?' (recommandé)':''}</option>`).join('')}</select></div>
+      <label class="f full">Conditions de paiement<textarea rows="4" data-s="conditions">${esc(s.conditions)}</textarea></label></div>`},
+   {k:'numerotation',t:'Numérotation',ic:'doc',c:'sky',
+    pv:()=>`${s.devisPrefix||'DEV'}-${yr}-001 · ${s.facturePrefix||'FAC'}-${yr}-001`,
+    sub:'Les numéros se suivent automatiquement, sans trou.',
+    body:()=>`<div class="fgrid">${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}${f('avoirPrefix','Préfixe des avoirs')}</div><p class="s" style="margin:14px 0 0">Exemples : <b>${esc(s.devisPrefix||'DEV')}-${yr}-001</b> · <b>${esc(s.facturePrefix||'FAC')}-${yr}-001</b> · <b>${esc(s.avoirPrefix||'AV')}-${yr}-001</b></p>`},
+   {k:'assurance',t:'Assurance',ic:'doc',c:'lemon',
+    pv:()=>insShort,
+    sub:'Mentions obligatoires sur les devis et factures du bâtiment. Laissez vide si vous n\'êtes pas concerné.',
+    body:()=>`<div class="fgrid"><label class="f full">Type d'assurance<select data-s="insKind">${['Garantie décennale','Responsabilité civile professionnelle','Garantie décennale et responsabilité civile professionnelle'].map(x=>`<option ${s.insKind===x?'selected':''}>${x}</option>`).join('')}</select></label>${f('insName','Assureur')}${f('insPolicy','N° de contrat')}${f('insAddr','Adresse de l\'assureur',null,true)}${f('insZone','Zone géographique couverte',null,true)}</div>`},
+   {k:'ca',t:'Chiffre d\'affaires micro',ic:'inv',c:'coral',
+    pv:()=>`Plafond ${(+s.plafondCA||0).toLocaleString('fr-FR')} €${s.tauxCot?' · cotisations '+s.tauxCot+' %':''}`,
+    sub:'Pour suivre votre plafond. À vérifier chaque année sur service-public.fr et autoentrepreneur.urssaf.fr.',
+    body:()=>`<div class="fgrid">${f('plafondCA','Plafond de chiffre d\'affaires (€)','number')}${f('tauxCot','Taux de cotisations (%, facultatif)','number')}</div>`},
+   {k:'compte',t:'Compte et abonnement',ic:'user',c:'lilac',
+    pv:()=>plan,
+    sub:'',
+    body:()=>`<div id="acct">${syCard()||'<p class="muted">La synchronisation n\'est pas disponible pour le moment.</p>'}</div>`,raw:true},
+   {k:'appli',t:'Application',ic:'cog',c:'mint',
+    pv:()=>`Vocabulaire : ${W().one}`,
+    sub:'',
+    body:()=>`<div class="approws">
+      <div class="arow"><span>Vocabulaire<small>Le mot utilisé dans toute l'appli</small></span><select data-s="vocab" aria-label="Vocabulaire">${Object.keys(VOC).map(k=>`<option value="${k}" ${W()===VOC[k]?'selected':''}>${cap(VOC[k].one)}${k==='projet'?' (recommandé)':''}</option>`).join('')}</select></div>
       ${isInstalled()?'':`<div class="arow"><span>Installer AUNE<small>Icône sur l'écran d'accueil, sans réseau</small></span><button class="btn sm" data-a="install">Installer</button></div>`}
       <div class="arow"><span>Une idée, un souci ?<small>Je lis tous les messages</small></span><button class="btn sm" data-a="feedback">Donner mon avis</button></div>
       <div class="arow"><span>Sauvegarde<small>${API?'Votre copie de secours':'Vos données restent sur cet appareil'}</small></span><span class="abtns"><button class="btn sm primary" data-a="export">Exporter</button><button class="btn sm" data-a="import">Importer</button></span></div>
-      <div class="arow sens"><span>Zone sensible</span><span class="abtns"><button class="btn sm" data-a="demo">Charger un exemple</button><button class="btn sm danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</span></div>
-    </div></div>`,
-    `<div class="card rows">`+
-      row('ins','Assurance (bâtiment)',insShort,`<p class="s" style="margin:0 0 10px">Mentions obligatoires sur les devis et factures du bâtiment. Laissez vide si vous n'êtes pas concerné.</p><div class="fgrid"><label class="f full">Type d'assurance<select data-s="insKind">${['Garantie décennale','Responsabilité civile professionnelle','Garantie décennale et responsabilité civile professionnelle'].map(x=>`<option ${s.insKind===x?'selected':''}>${x}</option>`).join('')}</select></label>${f('insName','Assureur')}${f('insPolicy','N° de contrat')}${f('insAddr','Adresse de l\'assureur',null,true)}${f('insZone','Zone géographique couverte',null,true)}</div>`)+
-      row('num','Numérotation',`${s.devisPrefix||'DEV'}-${yr}-001 · ${s.facturePrefix||'FAC'}-${yr}-001 · ${s.avoirPrefix||'AV'}-${yr}-001`,`<p class="s" style="margin:0 0 10px">Les numéros se suivent automatiquement, sans trou.</p><div class="fgrid">${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}${f('avoirPrefix','Préfixe des avoirs')}</div>`)+
-      row('ca','Chiffre d\'affaires micro',`Plafond ${(+s.plafondCA||0).toLocaleString('fr-FR')} €${s.tauxCot?' · cotisations '+s.tauxCot+' %':''}`,`<div class="fgrid">${f('plafondCA','Plafond de chiffre d\'affaires (€)','number')}${f('tauxCot','Taux de cotisations (%, facultatif)','number')}</div><p class="s" style="margin:10px 0 0">Plafond et taux : à vérifier chaque année sur service-public.fr et autoentrepreneur.urssaf.fr.</p>`)+
-fx+`</div>`];
-  return head('Réglages','')+
-  `<div class="cols2 eq"><div class="stack">${left.join('')}</div><div class="stack">${right.join('')}</div></div>`+
+      <div class="arow sens"><span>Zone sensible</span><span class="abtns"><button class="btn sm" data-a="demo">Charger un exemple</button><button class="btn sm danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</span></div></div>`,raw:true},
+   {k:'facture-electronique',t:'Facture électronique',ic:'doc',c:'sky',
+    pv:()=>'Ce qui arrive en septembre 2027',
+    sub:'',
+    body:()=>`<p style="margin:0 0 10px">Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du <b>1er septembre 2027</b>, les TPE, PME et micro-entreprises devront aussi en émettre, par une plateforme agréée.</p>
+      <p class="s" style="margin:0 0 10px">AUNE prépare déjà les nouvelles mentions : type de client, SIREN, nature de l'opération, TVA sur les débits, adresse de livraison. L'envoi par plateforme agréée viendra dans une prochaine version.</p>
+      <a href="https://www.impots.gouv.fr/professionnel/questions/partir-de-quand-suis-je-concerne-par-la-reforme-de-la-facturation" target="_blank" rel="noopener"><u>Voir le calendrier officiel (impots.gouv.fr)</u></a>`}
+  ];
+}
+function vReglages(){
+  const r=route(),secs=rgSections();
+  let key=r.name==='abonnement'?'compte':r.id;
+  const known=secs.some(x=>x.k===key);
+  const cur=secs.find(x=>x.k===key)||secs[0];
+  const list=`<nav class="rgl card" aria-label="Rubriques des réglages">${secs.map(x=>`<a class="rgi${x.k===cur.k?' on':''}" href="#/reglages/${x.k}"><span class="rgc" style="background:var(--${x.c}-s)">${ico(x.ic)}</span><span class="rgt"><b>${x.t}</b><small>${esc(x.pv())}</small></span>${x.dot?'<i class="rgdot" title="À compléter"></i>':''}<span class="rgch">›</span></a>`).join('')}</nav>`;
+  const detail=`<section class="rgd"><a class="back rgback" href="#/reglages">← Réglages</a><div class="rgh"><h2>${cur.t}</h2><span id="rgsaved" class="rgsaved" aria-live="polite"></span></div>${cur.sub?`<p class="muted small" style="margin:4px 0 0">${cur.sub}</p>`:''}<div class="${cur.raw?'rgraw':'card rgbody'}">${cur.body()}</div></section>`;
+  return head('Réglages','')+`<div class="rg2" data-view="${known?'detail':'list'}">${list}${detail}</div>`+
   `<p class="s" style="text-align:center;margin:26px 0 0"><a href="../mentions-legales.html"><u>Mentions légales</u></a> · <a href="../cgu.html"><u>Conditions</u></a> · <a href="../confidentialite.html"><u>Confidentialité</u></a> · <a href="../"><u>Site AUNE</u></a></p>`;
 }
 
@@ -1177,7 +1222,7 @@ document.addEventListener('change',e=>{
     if(sr)sr.value=d.clientSiren||'';
     syncPro(d);$('#warn').innerHTML=warnHtml(d);
   }
-  if(t.tagName==='SELECT'&&t.dataset.s){db.settings[t.dataset.s]=t.dataset.s==='tva'?+t.value:t.value;save();if(t.dataset.s==='vocab')render()}
+  if(t.tagName==='SELECT'&&t.dataset.s){db.settings[t.dataset.s]=t.dataset.s==='tva'?+t.value:t.value;save();rgSaved();if(t.dataset.s==='vocab')render()}
 });
 document.addEventListener('input',e=>{
   const t=e.target;
@@ -1188,7 +1233,7 @@ document.addEventListener('input',e=>{
     save();$('#tot').innerHTML=totalsHtml(d);return}
   l[k]=(k==='qty'||k==='pu')?(parseFloat(t.value)||0):t.value;save();if(k==='qty'||k==='pu'){const lt=$('#lt_'+t.dataset.i);if(lt)lt.value=lineTot(l)||''}$('#tot').innerHTML=totalsHtml(d);return}
   if(t.dataset.b!==undefined&&t.tagName!=='SELECT'){const d=doc(t.dataset.id);setField(d,t.dataset.b,t.value);save();if(t.dataset.b==='paid')$('#tot').innerHTML=totalsHtml(d);if(t.dataset.b==='clientSiren')$('#warn').innerHTML=warnHtml(d);return}
-  if(t.dataset.s!==undefined&&t.tagName!=='SELECT'){db.settings[t.dataset.s]=t.value;save()}
+  if(t.dataset.s!==undefined&&t.tagName!=='SELECT'){db.settings[t.dataset.s]=t.value;save();rgSaved()}
 });
 document.addEventListener('toggle',e=>{if(e.target.matches&&e.target.matches('details.rowd')){ui.rgo=ui.rgo||{};ui.rgo[e.target.dataset.k]=e.target.open}if(e.target.matches&&e.target.matches('details.more')&&route().id)ui.opt=e.target.open},true);
 
@@ -1385,6 +1430,8 @@ async function gsiDone(resp){
   }catch(e){toast('Pas de réseau pour le moment')}
 }
 /* Mesure anonyme (compteurs par jour, sans cookie ni identifiant) et avis des utilisateurs */
+let rgT=0;
+function rgSaved(){const e=$('#rgsaved');if(!e)return;e.textContent='✓ Enregistré';e.classList.add('on');clearTimeout(rgT);rgT=setTimeout(()=>e.classList.remove('on'),1600);const sec=document.querySelector('.rgi.on small'),k=route().id||'entreprise';if(sec){const x=rgSections().find(y=>y.k===k);if(x)sec.textContent=x.pv()}const d=document.querySelector('.rgi.on .rgdot');if(d&&db.settings.name)d.remove()}
 const hit=e=>{try{if(!API||navigator.doNotTrack==='1')return;fetch(API+'/api/hit',{method:'POST',body:JSON.stringify({e}),keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(()=>{})}catch(x){}};
 function feedbackDlg(){
   const dlg=$('#dlg');
@@ -1417,7 +1464,7 @@ async function syDelete(){
 }
 async function checkLink(){
   const r=route();if(r.name!=='connexion'||!r.id||!API)return;
-  const t=r.id;history.replaceState(null,'',location.pathname+location.search+'#/reglages');render();
+  const t=r.id;history.replaceState(null,'',location.pathname+location.search+'#/reglages/compte');render();
   try{
     const {status,j}=await syApi('/api/verify','POST',{token:t});
     if(status===200){sy={s:j.session,e:j.email,rev:0,dirty:!isBlank(db)};syKeep();await meRefresh();toast('Connecté');render();syncNow()}
