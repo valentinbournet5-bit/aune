@@ -179,6 +179,13 @@ dialog::backdrop{background:rgba(35,39,51,.45)}
 .line .ltot input{font-weight:750}
 .line .icon-btn{align-self:end;height:46px}
 .fbl{margin:26px 0 0;text-align:center}
+.rtabs{display:flex;gap:6px;background:var(--soft);padding:5px;border-radius:18px;margin:0 0 20px;overflow-x:auto;scrollbar-width:none}
+.rtabs::-webkit-scrollbar{display:none}
+.rtabs button{flex:1 0 auto;border:0;background:none;padding:10px 16px;border-radius:14px;font:inherit;font-weight:700;color:var(--muted);cursor:pointer;white-space:nowrap;min-height:44px}
+.rtabs button:hover{color:var(--ink)}
+.rtabs button[aria-selected=true]{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+.rg .fgrid{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));align-items:end}
+@media(max-width:560px){.rtabs button{flex:1 1 0;padding:10px 2px;font-size:13px}.rg .fgrid{grid-template-columns:1fr}}
 .gor{display:flex;align-items:center;gap:12px;margin:14px 0 10px;color:var(--muted);font-size:14px}.gor::before,.gor::after{content:"";flex:1;height:1px;background:var(--line)}
 .gbtn{min-height:44px;display:flex;justify-content:center}
 /* démarrage guidé */
@@ -675,34 +682,42 @@ function vPlanning(){
    :empty('Rien à afficher','Ajoutez des dates à vos '+W().lots+' pour les voir ici.',`<a class="btn primary" href="#/chantiers">Voir les ${W().many}</a>`));
 }
 
+const RTABS=[['entreprise','Entreprise'],['documents','Documents'],['compte','Compte'],['appli','Application']];
+const rtabGet=()=>{if(route().name==='abonnement')return 'compte';let t=ui.rtab;if(!t){try{t=sessionStorage.getItem('aune.rtab')}catch(e){}}return RTABS.some(x=>x[0]===t)?t:'entreprise'};
+const rtabSet=t=>{ui.rtab=t;try{sessionStorage.setItem('aune.rtab',t)}catch(e){}};
 function vReglages(){
   const s=db.settings,f=(k,l,t,full)=>`<label class="f ${full?'full':''}">${l}<input type="${t||'text'}" data-s="${k}" value="${esc(s[k])}"></label>`;
-  return head('Réglages','Ces informations apparaissent sur vos devis et factures.')+
-  `<div class="cols2 eq"><div class="stack">
-   <div class="card"><h2 style="margin-bottom:14px">Mon entreprise</h2><div class="fgrid">
-    ${f('name','Nom de l\'entreprise',null,true)}${f('siret','SIRET')}${f('phone','Téléphone','tel')}${f('email','E-mail','email')}${f('address','Adresse')}
-    <label class="f full">Régime de TVA<select data-s="tvaMode"><option value="franchise" ${s.tvaMode==='franchise'?'selected':''}>Auto-entrepreneur : TVA non applicable (art. 293 B du CGI)</option><option value="assujetti" ${s.tvaMode==='assujetti'?'selected':''}>Assujetti à la TVA</option></select></label>
-    <label class="f full">Vocabulaire<select data-s="vocab">${Object.keys(VOC).map(k=>`<option value="${k}" ${W()===VOC[k]?'selected':''}>${cap(VOC[k].one)}${k==='projet'?' (recommandé)':''}</option>`).join('')}</select></label>
-   </div></div>
-   <details class="more"><summary>Plus de réglages</summary><div class="card" style="margin-top:6px"><div class="fgrid">
-    <p class="s full" style="margin:2px 0 -4px"><b>Assurance (bâtiment)</b> : mentions obligatoires sur vos devis et factures. Laissez vide si non concerné.</p>
-    <label class="f full">Type d'assurance<select data-s="insKind">${['Garantie décennale','Responsabilité civile professionnelle','Garantie décennale et responsabilité civile professionnelle'].map(x=>`<option ${s.insKind===x?'selected':''}>${x}</option>`).join('')}</select></label>
-    ${f('insName','Assureur')}${f('insPolicy','N° de contrat')}${f('insAddr','Adresse de l\'assureur',null,true)}${f('insZone','Zone géographique couverte',null,true)}
-    <p class="s full" style="margin:2px 0 -4px"><b>Entreprise</b></p>
-    ${f('legal','Forme juridique (ex. EI, SARL)')}${f('iban','IBAN (affiché sur les factures)')}${f('vatId','N° de TVA intracommunautaire (si assujetti)')}
-    <label class="f">Taux de TVA par défaut<select data-s="tva">${[5.5,10,20].map(x=>`<option value="${x}" ${+s.tva===x?'selected':''}>${x} %</option>`).join('')}</select></label><span></span>
-    ${f('acomptePct','Acompte proposé sur les devis (%)','number')}${f('plafondCA','Plafond de chiffre d\'affaires micro (€)','number')}${f('tauxCot','Taux de cotisations (%, facultatif)','number')}<p class="s full" style="margin:-6px 0 0">Plafond et taux : à vérifier chaque année sur service-public.fr et autoentrepreneur.urssaf.fr.</p>${f('devisPrefix','Préfixe des devis')}${f('avoirPrefix','Préfixe des avoirs')}${f('facturePrefix','Préfixe des factures')}
-    <label class="f full">Conditions de paiement<textarea rows="3" data-s="conditions">${esc(s.conditions)}</textarea></label></div></div></details>
-  </div><div class="stack"><div class="card" style="background:var(--sky-s);box-shadow:none"><h2 style="margin-bottom:6px">Facture électronique : ce qui arrive</h2>
+  const card=(title,sub,body,style)=>`<div class="card"${style?` style="${style}"`:''}><h2>${title}</h2>${sub?`<p class="muted small" style="margin:4px 0 0">${sub}</p>`:''}<div class="rg" style="margin-top:14px">${body}</div></div>`;
+  const yr=new Date().getFullYear(),tab=rtabGet();
+  const tabs=`<div class="rtabs" role="tablist">${RTABS.map(([k,l])=>`<button type="button" role="tab" aria-selected="${k===tab}" data-a="rtab" data-t="${k}">${l}</button>`).join('')}</div>`;
+  const pages={
+   entreprise:[
+    [card('Identité','Ces informations apparaissent sur vos devis et vos factures.',`<div class="fgrid">${f('name','Nom de l\'entreprise',null,true)}${f('legal','Forme juridique (ex. EI, SARL)')}${f('siret','SIRET')}${f('address','Adresse',null,true)}${f('phone','Téléphone','tel')}${f('email','E-mail','email')}</div>`),
+     card('Assurance','Mentions obligatoires sur les devis et factures du bâtiment. Laissez vide si vous n\'êtes pas concerné.',`<div class="fgrid"><label class="f full">Type d'assurance<select data-s="insKind">${['Garantie décennale','Responsabilité civile professionnelle','Garantie décennale et responsabilité civile professionnelle'].map(x=>`<option ${s.insKind===x?'selected':''}>${x}</option>`).join('')}</select></label>${f('insName','Assureur')}${f('insPolicy','N° de contrat')}${f('insAddr','Adresse de l\'assureur',null,true)}${f('insZone','Zone géographique couverte',null,true)}</div>`)],
+    [card('TVA et chiffre d\'affaires',null,`<div class="fgrid"><label class="f full">Régime de TVA<select data-s="tvaMode"><option value="franchise" ${s.tvaMode==='franchise'?'selected':''}>Auto-entrepreneur : TVA non applicable (art. 293 B du CGI)</option><option value="assujetti" ${s.tvaMode==='assujetti'?'selected':''}>Assujetti à la TVA</option></select></label>
+      <label class="f">Taux de TVA par défaut<select data-s="tva">${[5.5,10,20].map(x=>`<option value="${x}" ${+s.tva===x?'selected':''}>${x} %</option>`).join('')}</select></label>${f('vatId','N° de TVA intracommunautaire (si assujetti)')}
+      ${f('plafondCA','Plafond de chiffre d\'affaires micro (€)','number')}${f('tauxCot','Taux de cotisations (%, facultatif)','number')}
+      <p class="s full" style="margin:0">Plafond et taux : à vérifier chaque année sur service-public.fr et autoentrepreneur.urssaf.fr.</p></div>`)]],
+   documents:[
+    [card('Numérotation','Les numéros se suivent automatiquement, sans trou.',`<div class="fgrid">${f('devisPrefix','Préfixe des devis')}${f('facturePrefix','Préfixe des factures')}${f('avoirPrefix','Préfixe des avoirs')}</div><p class="s" style="margin:12px 0 0">Exemples : <b>${esc(s.devisPrefix||'DEV')}-${yr}-001</b> · <b>${esc(s.facturePrefix||'FAC')}-${yr}-001</b> · <b>${esc(s.avoirPrefix||'AV')}-${yr}-001</b></p>`)],
+    [card('Paiement','Affiché sur vos devis et vos factures.',`<div class="fgrid">${f('acomptePct','Acompte proposé sur les devis (%)','number')}${f('iban','IBAN (affiché sur les factures)')}<label class="f full">Conditions de paiement<textarea rows="4" data-s="conditions">${esc(s.conditions)}</textarea></label></div>`)]],
+   compte:[
+    [syCard()||card('Compte','La synchronisation n\'est pas disponible pour le moment.','')],
+    [`<div class="card" style="background:var(--sky-s);box-shadow:none"><h2 style="margin-bottom:6px">Facture électronique : ce qui arrive</h2>
   <p style="margin:0 0 8px">Depuis le 1er septembre 2026, toute entreprise doit pouvoir recevoir des factures électroniques. À partir du <b>1er septembre 2027</b>, les TPE, PME et micro-entreprises devront aussi en émettre, par une plateforme agréée.</p>
   <p class="s" style="margin:0 0 8px">AUNE prépare déjà les nouvelles mentions : type de client, SIREN, nature de l'opération, TVA sur les débits, adresse de livraison. L'envoi par plateforme agréée viendra dans une prochaine version.</p>
-  <a href="https://www.impots.gouv.fr/professionnel/questions/partir-de-quand-suis-je-concerne-par-la-reforme-de-la-facturation" target="_blank" rel="noopener"><u>Voir le calendrier officiel (impots.gouv.fr)</u></a></div>
-  ${syCard()}
-  ${installCard()}
-  <div class="card"><h2 style="margin-bottom:6px">Une idée, un souci ?</h2><p class="muted" style="margin-top:0">Dites-moi ce qui manque ou ce qui vous gêne : je lis tous les messages.</p><div class="actions"><button class="btn" data-a="feedback">Donner mon avis</button></div></div>
-  <div class="card"><h2 style="margin-bottom:6px">Sauvegarde de mes données</h2><p class="muted" style="margin-top:0">${API?'Exportez de temps en temps un fichier : c\'est votre copie de secours.':'Vos données restent sur cet appareil. Exportez un fichier pour les sauvegarder ou les copier sur un autre appareil.'}</p>
-  <div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</div></div>
-  <p class="s" style="text-align:center;margin:6px 0 0"><a href="../mentions-legales.html"><u>Mentions légales</u></a> · <a href="../cgu.html"><u>Conditions</u></a> · <a href="../confidentialite.html"><u>Confidentialité</u></a> · <a href="../"><u>Site AUNE</u></a></p></div></div>`;
+  <a href="https://www.impots.gouv.fr/professionnel/questions/partir-de-quand-suis-je-concerne-par-la-reforme-de-la-facturation" target="_blank" rel="noopener"><u>Voir le calendrier officiel (impots.gouv.fr)</u></a></div>`]],
+   appli:[
+    [installCard(),
+     card('Vocabulaire','Le mot utilisé dans toute l\'appli. Vos données ne changent pas.',`<select data-s="vocab" aria-label="Vocabulaire">${Object.keys(VOC).map(k=>`<option value="${k}" ${W()===VOC[k]?'selected':''}>${cap(VOC[k].one)}${k==='projet'?' (recommandé)':''}</option>`).join('')}</select>`),
+     card('Une idée, un souci ?','Dites-moi ce qui manque ou ce qui vous gêne : je lis tous les messages.',`<div class="actions"><button class="btn" data-a="feedback">Donner mon avis</button></div>`)],
+    [card('Sauvegarde de mes données',API?'Exportez de temps en temps un fichier : c\'est votre copie de secours.':'Vos données restent sur cet appareil. Exportez un fichier pour les sauvegarder ou les copier sur un autre appareil.',`<div class="actions"><button class="btn primary" data-a="export">Exporter</button><button class="btn" data-a="import">Importer un fichier</button></div>
+      <p class="s" style="margin:16px 0 8px"><b>Zone sensible</b></p><div class="actions"><button class="btn" data-a="demo">Charger un exemple</button><button class="btn danger" data-a="reset">Tout effacer</button>${undoInfo()?`<button class="btn link" data-a="undo">Annuler le dernier remplacement</button>`:''}</div>`)]]
+  };
+  const [l1,l2]=pages[tab];
+  return head('Réglages','')+tabs+
+  `<div class="cols2 eq"><div class="stack">${l1.join('')}</div><div class="stack">${l2.join('')}</div></div>`+
+  `<p class="s" style="text-align:center;margin:26px 0 0"><a href="../mentions-legales.html"><u>Mentions légales</u></a> · <a href="../cgu.html"><u>Conditions</u></a> · <a href="../confidentialite.html"><u>Confidentialité</u></a> · <a href="../"><u>Site AUNE</u></a></p>`;
 }
 
 /* ============ Chiffre d'affaires et livre des recettes ============ */
@@ -1060,6 +1075,7 @@ const actions={
   printDoc:d=>printDoc(doc(d.id)),
   dl:d=>docDownload(doc(d.id)),dlRow:(d,e)=>{e.preventDefault();e.stopPropagation();docDownload(doc(d.id))},
   feedback:()=>feedbackDlg(),feedbackSend:()=>feedbackSend(),
+  rtab:d=>{rtabSet(d.t);render()},
   hideStart:()=>{lsSet('aune.start',1);render()},
   install:()=>{if(installEv){const e=installEv;installEv=null;e.prompt();e.userChoice.finally(()=>render())}else installDlg()},
   send:d=>docSend(doc(d.id)),sendPlain:d=>{$('#dlg').close();docSend(doc(d.id),true)},
@@ -1393,7 +1409,7 @@ async function checkLink(){
   const t=r.id;history.replaceState(null,'',location.pathname+location.search+'#/reglages');render();
   try{
     const {status,j}=await syApi('/api/verify','POST',{token:t});
-    if(status===200){sy={s:j.session,e:j.email,rev:0,dirty:!isBlank(db)};syKeep();await meRefresh();toast('Connecté');render();syncNow()}
+    if(status===200){sy={s:j.session,e:j.email,rev:0,dirty:!isBlank(db)};syKeep();rtabSet('compte');await meRefresh();toast('Connecté');render();syncNow()}
     else toast('Lien expiré ou déjà utilisé : demandez-en un nouveau')
   }catch(e){toast('Pas de réseau pour le moment')}
 }
