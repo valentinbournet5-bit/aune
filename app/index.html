@@ -558,9 +558,10 @@ function vChantier(r){
   `</div></div>`;
 }
 
+const hiddenCanc=d=>d.type==='facture'&&(isCancelled(d)||(d.avoir&&d.status!=='brouillon'&&isCancelled(doc(d.refId)||{})));
 function listDocs(type){
   const q=ui.q.toLowerCase();
-  const l=db.docs.filter(d=>d.type===type&&(!q||((d.clientName||'')+' '+d.number+' '+((ch(d.chantierId)||{}).name||'')).toLowerCase().includes(q))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||b.number.localeCompare(a.number));
+  const l=db.docs.filter(d=>d.type===type&&(type!=='facture'||ui.showCanc||!hiddenCanc(d))&&(!q||((d.clientName||'')+' '+d.number+' '+((ch(d.chantierId)||{}).name||'')).toLowerCase().includes(q))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||b.number.localeCompare(a.number));
   return l.length?`<div class="list">${l.map(d=>docRow(d)).join('')}</div>`:empty(q?'Aucun résultat':(type==='devis'?'Aucun devis':'Aucune facture'),type==='devis'?'Créez un devis, envoyez-le en PDF, puis transformez-le en facture.':'Créez une facture, ou transformez un devis accepté.',q?'':`<button class="btn primary" data-a="newDoc" data-type="${type}">+ ${type==='devis'?'Devis':'Facture'}</button>`);
 }
 function vDocs(type,r){
@@ -571,6 +572,7 @@ function vDocs(type,r){
     :kpi('mint','À encaisser',sum(d=>d.status==='envoyée'))+kpi('coral','En retard',sum(isLate))+(isPro()?`<button class="kpi lilac kpibtn" data-a="caDlg"><span>CA ${new Date().getFullYear()} · voir le détail</span><b>${eur(caTotal(new Date().getFullYear()))}</b></button>`:`<button class="kpi lilac kpibtn" data-a="caDlg"><span>Suivi du chiffre d'affaires</span><b style="font-size:17px">Fonction Pro</b></button>`);
   return head(type==='devis'?'Devis':'Factures','',`<button class="btn primary" data-a="newDoc" data-type="${type}">+ ${type==='devis'?'Devis':'Facture'}</button>`)+
   (all.length?`<div class="kpis three">${k}</div>`:'')+
+  (type==='facture'&&all.some(hiddenCanc)?`<p class="s" style="margin:0 0 12px"><button class="btn link" data-a="toggleCanc">${ui.showCanc?'Masquer':'Afficher'} les annulées (${all.filter(hiddenCanc).length})</button></p>`:'')+
   (all.length>4?`<input class="search" type="search" placeholder="Rechercher un client ou un numéro" data-q="${type}" value="${esc(ui.q)}">`:'')+
   `<div id="list">${listDocs(type)}</div>`;
 }
@@ -613,7 +615,7 @@ const docSub=d=>{
   const av=db.docs.filter(x=>x.avoir&&x.refId===d.id);
   return av.length?'Avoir : '+av.map(x=>`<a href="#/factures/${x.id}"><u>${esc(x.number)}</u></a>`).join(', '):'';
 };
-const lockBanner=d=>isLocked(d)?`<div class="notice">${d.avoir?'Avoir émis':'Facture émise'} : ${d.avoir?'il':'elle'} n'est plus modifiable.${d.avoir?'':` ${d.status==='envoyée'&&!creditOf(d)?`Une erreur ? <button class="btn link" data-a="corriger" data-id="${d.id}">Corriger la facture</button> (avoir + copie modifiable) ou `:'Pour la corriger, '}<button class="btn link" data-a="avoir" data-id="${d.id}">créer un avoir</button>`}</div>`:'';
+const lockBanner=d=>isLocked(d)?`<div class="notice">${d.avoir?'Avoir émis':'Facture émise'} : ${d.avoir?'il':'elle'} n'est plus modifiable.${d.avoir?'':` ${d.status==='envoyée'&&!creditOf(d)?`Une erreur ? <button class="btn link" data-a="corriger" data-id="${d.id}">Corriger la facture</button> (avoir + copie modifiable), <button class="btn link" data-a="annuler" data-id="${d.id}">Annuler la facture</button> ou `:'Pour la corriger, '}<button class="btn link" data-a="avoir" data-id="${d.id}">créer un avoir</button>`}</div>`:'';
 function vDocEdit(d){
   const isD=d.type==='devis',sts=isD?STAT_D:STAT_F,items=[...catalog().values()];
   return `<a class="back" href="#/${isD?'devis':'factures'}">← ${isD?'Devis':'Factures'}</a>`+
@@ -993,6 +995,12 @@ async function docDownload(d){
     if(fxTip&&!fxTipShown){fxTipShown=true;setTimeout(()=>toast('Facture électronique Factur-X : fonction Pro (30 jours d\'essai offerts)'),2800)}
   }finally{sendBusy=false}
 }
+function creditNoteOf(q){ // avoir total, émis tout de suite
+  const t=today();
+  return {id:uid(),type:'facture',avoir:true,refId:q.id,refNumber:q.number,refDate:q.date,number:nextNumber('facture',true),chantierId:q.chantierId,clientId:q.clientId||'',clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:t,tva:q.tva,status:'envoyée',
+    notes:`Avoir sur la facture ${q.number} du ${fdate(q.date)}.`,paid:0,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',
+    lines:q.lines.filter(l=>l.desc||l.pu).map(l=>({...l,pu:-Math.abs(+l.pu||0),qty:Math.abs(+l.qty||0)}))};
+}
 function deleteDocFlow(id){
   const x0=doc(id);if(!x0)return null;
   if(isLocked(x0)){toast('Une facture émise ne peut pas être supprimée : créez un avoir.');return null}
@@ -1060,7 +1068,9 @@ const actions={
   rlSend:d=>{const t=$('#rlTxt').value,x=doc(d.id);if(navigator.share)navigator.share({title:'Facture '+x.number,text:t}).catch(()=>{});else location.href='mailto:'+(((clientOf(x)||{}).email)||'').replace(/\s/g,'')+'?subject='+encodeURIComponent('Facture '+x.number+' : rappel')+'&body='+encodeURIComponent(t)},
   rlSms:d=>{const c=clientOf(doc(d.id));location.href='sms:'+String(c.phone).replace(/[^\d+]/g,'')+'?&body='+encodeURIComponent($('#rlTxt').value)},
   dupDoc:d=>dupDoc(doc(d.id)),undo:()=>restoreUndo(),
-  setStatus:d=>{const x=doc(d.id);setField(x,'status',d.v);save();ui.flash='st';render()},
+  setStatus:d=>{const x=doc(d.id);
+    if(x&&x.type==='facture'&&x.status==='brouillon'&&d.v==='envoyée'&&!confirm((x.avoir?'Émettre l\'avoir ':'Valider la facture ')+x.number+' ?\n\nUne fois validée, elle ne pourra plus être modifiée ni supprimée. Pour la corriger, il faudra émettre un avoir.'))return;
+    setField(x,'status',d.v);save();ui.flash='st';render()},
   avoir:d=>{
     const q=doc(d.id);if(!q||q.type!=='facture'||q.avoir||q.status==='brouillon')return;const t=today();
     const f={id:uid(),type:'facture',avoir:true,refId:q.id,refNumber:q.number,refDate:q.date,number:nextNumber('facture',true),chantierId:q.chantierId,clientId:q.clientId||'',clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:t,tva:q.tva,status:'brouillon',
@@ -1070,13 +1080,15 @@ const actions={
   corriger:d=>{ // avoir total émis + copie en brouillon, modifiable
     const q=doc(d.id);if(!q||q.type!=='facture'||q.avoir||q.status!=='envoyée'||creditOf(q))return;
     if(!confirm('Annuler la facture '+q.number+' par un avoir, et créer une copie à corriger ?'))return;
-    const t=today(),lines=q.lines.filter(l=>l.desc||l.pu);
-    const av={id:uid(),type:'facture',avoir:true,refId:q.id,refNumber:q.number,refDate:q.date,number:nextNumber('facture',true),chantierId:q.chantierId,clientId:q.clientId||'',clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:t,tva:q.tva,status:'envoyée',
-      notes:`Avoir sur la facture ${q.number} du ${fdate(q.date)}.`,paid:0,clientType:q.clientType||'particulier',clientSiren:q.clientSiren||'',nature:q.nature||'services',tvaDebits:!!q.tvaDebits,deliveryAddress:q.deliveryAddress||'',
-      lines:lines.map(l=>({...l,pu:-Math.abs(+l.pu||0),qty:Math.abs(+l.qty||0)}))};
-    db.docs.push(av);
+    const t=today();
+    const av=creditNoteOf(q);db.docs.push(av);
     const f={...q,id:uid(),number:nextNumber('facture'),date:t,due:addDays(t,30),status:'brouillon',paid:0,paidAt:'',lines:q.lines.map(l=>({...l}))};
     db.docs.push(f);save();toast('Avoir '+av.number+' émis. Corrigez la copie, puis émettez-la');go('factures/'+f.id)},
+  annuler:d=>{
+    const q=doc(d.id);if(!q||q.type!=='facture'||q.avoir||q.status!=='envoyée'||creditOf(q))return;
+    if(!confirm('Annuler la facture '+q.number+' ?\n\nUn avoir total sera émis. La facture reste dans vos archives, marquée « annulée ».'))return;
+    const av=creditNoteOf(q);db.docs.push(av);save();toast('Facture annulée par l\'avoir '+av.number);render()},
+  toggleCanc:()=>{ui.showCanc=!ui.showCanc;render()},
   acompte:d=>{
     const q=doc(d.id),pct=acomptePct(),t=today();
     const f={id:uid(),type:'facture',number:nextNumber('facture'),chantierId:q.chantierId,clientId:q.clientId||'',clientName:q.clientName,clientAddress:q.clientAddress,date:t,due:addDays(t,8),tva:q.tva,status:'brouillon',
@@ -1091,7 +1103,12 @@ const actions={
   demo:()=>{if(!db.chantiers.length||confirm('Ajouter des données d\'exemple à vos données actuelles ?')){demo();render();toast('Exemple chargé')}},
   export:()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,1)],{type:'application/json'}));a.download='aune-sauvegarde-'+today()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);lsSet('aune.bk',Date.now());toast('Sauvegarde téléchargée');if(route().name==='accueil')render()},
   import:()=>$('#file').click(),
-  reset:()=>{if(confirm(sy.s?'Effacer toutes vos données, y compris la version en ligne ? Pensez à exporter une sauvegarde avant.':'Effacer toutes les données de cet appareil ? Pensez à exporter une sauvegarde avant.')){snapshot();db=blank();save();go('accueil')}}
+  reset:()=>{
+    const emitted=db.docs.filter(x=>x.type==='facture'&&x.status!=='brouillon').length;
+    const base=sy.s?'Effacer toutes vos données, y compris la version en ligne ? Pensez à exporter une sauvegarde avant.':'Effacer toutes les données de cet appareil ? Pensez à exporter une sauvegarde avant.';
+    if(emitted){const t=prompt('Attention : vous avez '+emitted+' facture'+(emitted>1?'s':'')+' émise'+(emitted>1?'s':'')+'. Une facture doit normalement être conservée 10 ans, et tout effacer supprime aussi la numérotation. Exportez d\'abord une sauvegarde.\n\nPour tout effacer quand même, tapez EFFACER :');if((t||'').trim().toUpperCase()!=='EFFACER')return}
+    else if(!confirm(base))return;
+    snapshot();db=blank();save();lsSet('aune.start',0);go('accueil')},
 };
 document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&actions[t.dataset.a])actions[t.dataset.a](t.dataset,e)});
 function setField(d,k,v){
