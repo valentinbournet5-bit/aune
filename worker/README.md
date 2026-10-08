@@ -64,3 +64,9 @@ Sur votre ordinateur, avec Node.js installé, dans le dossier `worker/` :
   - par jour : `SELECT day, name, n FROM stats ORDER BY day DESC, name;`
   - totaux : `SELECT name, SUM(n) AS total FROM stats GROUP BY name;`
   - comptes créés : `SELECT COUNT(*) FROM accounts;`
+
+### Provenance des visites (`?s=`)
+
+Un lien du type `https://aune.app/?s=tiktok` (ou `?s=instagram`, `facebook`, `linkedin`, `youtube`, `whatsapp`, `mail`, `google`, `autre`) fait compter l'événement en double : `site` et `site:tiktok`. L'étiquette est gardée le temps de l'onglet, donc `app`, `devis`, `first_doc`… sont aussi comptés par source (`first_doc:tiktok`). Une étiquette inconnue n'est comptée que dans le total.
+
+- Visites et premiers documents par source : `SELECT name, SUM(n) AS total FROM stats WHERE name LIKE 'site:%' OR name LIKE 'first_doc:%' GROUP BY name ORDER BY name;`

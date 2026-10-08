@@ -1433,7 +1433,8 @@ async function gsiDone(resp){
 /* Mesure anonyme (compteurs par jour, sans cookie ni identifiant) et avis des utilisateurs */
 let rgT=0;
 function rgSaved(){const e=$('#rgsaved');if(!e)return;e.textContent='✓ Enregistré';e.classList.add('on');clearTimeout(rgT);rgT=setTimeout(()=>e.classList.remove('on'),1600);const sec=document.querySelector('.rgi.on small'),k=route().id||'entreprise';if(sec){const x=rgSections().find(y=>y.k===k);if(x)sec.textContent=x.pv()}const d=document.querySelector('.rgi.on .rgdot');if(d&&db.settings.name)d.remove()}
-const hit=e=>{try{if(!API||navigator.doNotTrack==='1')return;fetch(API+'/api/hit',{method:'POST',body:JSON.stringify({e}),keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(()=>{})}catch(x){}};
+const srcOf=()=>{try{if(navigator.doNotTrack==='1')return '';const q=new URLSearchParams(location.search).get('s');if(/^[a-z0-9]{2,12}$/i.test(q||''))sessionStorage.setItem('aune.src',q.toLowerCase());return sessionStorage.getItem('aune.src')||''}catch(x){return ''}};
+const hit=e=>{try{if(!API||navigator.doNotTrack==='1')return;fetch(API+'/api/hit',{method:'POST',body:JSON.stringify({e,s:srcOf()}),keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(()=>{})}catch(x){}};
 function feedbackDlg(){
   const dlg=$('#dlg');
   dlg.innerHTML=`<div class="dform"><h2>Votre avis</h2><p class="muted" style="margin:0 0 10px">Une idée, un souci, une question ? Je lis tout.</p><label class="f"><span>Message</span><textarea id="fbMsg" rows="5" placeholder="Ce qui manque, ce qui vous gêne, ce qui vous plaît…" style="width:100%"></textarea></label><label class="f"><span>Votre e-mail (facultatif, pour vous répondre)</span><input type="email" id="fbMail" autocomplete="email" value="${esc(sy.e||'')}"></label><div class="frow"><button type="button" class="btn" data-a="closeDlg">Annuler</button><button type="button" class="btn primary" data-a="feedbackSend">Envoyer</button></div></div>`;

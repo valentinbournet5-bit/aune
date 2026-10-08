@@ -85,6 +85,7 @@ async function googleEmail(env, idToken, now) {
 
 /* ---------- Compteurs anonymes (audience) ---------- */
 const HIT_EVENTS = ['site', 'app', 'first_doc', 'devis', 'facture', 'install'];
+const HIT_SOURCES = ['tiktok', 'instagram', 'facebook', 'linkedin', 'youtube', 'whatsapp', 'mail', 'google', 'autre'];
 async function bump(env, name, now) {
   try {
     await env.DB.prepare('INSERT INTO stats(day,name,n) VALUES(?,?,1) ON CONFLICT(day,name) DO UPDATE SET n=n+1').bind(new Date(now).toISOString().slice(0, 10), name).run();
@@ -185,8 +186,11 @@ export default {
 
     // Mesure d'audience anonyme : de simples compteurs par jour (aucun cookie, aucun identifiant, aucune adresse IP conservée).
     if (path === '/api/hit' && req.method === 'POST') {
-      const b = await readJson(req), e = String(b && b.e || '');
-      if (HIT_EVENTS.includes(e) && req.headers.get('Origin') === new URL(env.APP_URL).origin) await bump(env, e, now);
+      const b = await readJson(req), e = String(b && b.e || ''), src = String(b && b.s || '').toLowerCase();
+      if (HIT_EVENTS.includes(e) && req.headers.get('Origin') === new URL(env.APP_URL).origin) {
+        await bump(env, e, now);
+        if (HIT_SOURCES.includes(src)) await bump(env, e + ':' + src, now); // provenance du lien (?s=tiktok…)
+      }
       return new Response(null, { status: 204, headers: cors(env, req) });
     }
 
