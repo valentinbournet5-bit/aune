@@ -186,7 +186,7 @@ dialog::backdrop{background:rgba(35,39,51,.45)}
 .rgl{padding:8px;position:sticky;top:20px}
 .rgi{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:14px;color:var(--ink);text-decoration:none}
 .rgi:hover{background:var(--soft)}
-.rgi.on{background:var(--soft);box-shadow:inset 3px 0 0 var(--ink)}
+.rgi.on{background:var(--soft)}
 .rgc{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none}
 .rgt{display:grid;min-width:0;flex:1}.rgt b{font-weight:700}
 .rgt small{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -307,8 +307,8 @@ body:not([data-sec]) .sumcard,body[data-sec=chantiers] .sumcard{background:#fff;
   .ccard:hover{transform:translateY(-2px)}
   .btn:active,.tile:active,.ccard:active,button.pill:active{transform:scale(.97)}
   /* un seul mouvement d'ensemble quand on change de page */
-  main.enter{animation:enter .3s cubic-bezier(.2,.7,.2,1)}
-  @keyframes enter{from{opacity:0;transform:translateY(10px)}}
+  main.enter{animation:enter .16s ease-out}
+  @keyframes enter{from{opacity:0}}
   main.enter .bar2 i{transform-origin:left;animation:grow .8s .12s cubic-bezier(.2,.7,.2,1) both}
   @keyframes grow{from{transform:scaleX(0)}}
   /* réponses à une action */
@@ -869,7 +869,7 @@ function render(){
   if(navVoc!==W().one)drawNav();
   const r=route();
   const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),abonnement:vReglages,clients:()=>r.id?vClient(r):vClients(),reglages:vReglages};
-  const key=r.name+'/'+(r.id||'');
+  const key=(r.name==='reglages'||r.name==='abonnement')?'reglages/':r.name+'/'+(r.id||'');
   const entering=key!==lastKey;
   if(key!==lastKey){ui.q='';ui.opt=false}
   $('#main').innerHTML=(views[r.name]||vAccueil)();
@@ -879,7 +879,8 @@ function render(){
   if(sec)document.body.dataset.sec=sec;else delete document.body.dataset.sec;
   document.querySelectorAll('[data-n]').forEach(a=>a.classList.toggle('on',a.dataset.n===on));
   const m=$('#main');
-  if(key!==lastKey){window.scrollTo(0,0);lastKey=key;m.classList.remove('enter');void m.offsetWidth;m.classList.add('enter')}
+  if(key!==lastKey){window.scrollTo(0,0);lastKey=key;ui.rgv=undefined;m.classList.remove('enter');void m.offsetWidth;m.classList.add('enter')}
+  else if(key==='reglages/'){const w=document.querySelector('.rg2'),v=w?w.dataset.view:'';if(ui.rgv!==undefined&&ui.rgv!==v&&matchMedia('(max-width:820px)').matches)window.scrollTo(0,0);ui.rgv=v}
   if(ui.flash){ // petit rebond sur l'élément qui vient de changer
     const f=ui.flash;ui.flash=null;let el=null;
     if(f.startsWith('lot:'))el=$(`[data-a="cycleLot"][data-id="${f.slice(4)}"]`);
