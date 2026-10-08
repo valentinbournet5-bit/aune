@@ -16,7 +16,7 @@
    chantiers = lilas · devis = ciel · factures = menthe · alertes = corail · attention = citron */
 :root{
   color-scheme:light;
-  --bg:#f8f7f3;--card:#fff;--ink:#232733;--muted:#70758a;--line:#ebe8e0;--soft:#f2f0ea;
+  --bg:#f8f7f3;--card:#fff;--ink:#232733;--muted:#5f6478;--line:#ebe8e0;--soft:#f2f0ea;
   --sky:#86c9ff;--mint:#72e3b4;--lilac:#bba3ff;--coral:#ff9d8f;--lemon:#ffdf6b;
   --sky-s:#e4f3ff;--mint-s:#dff8ee;--lilac-s:#ede7ff;--coral-s:#ffeae6;--lemon-s:#fff6d4;
   --sky-d:#0d5a94;--mint-d:#087349;--lilac-d:#5430c4;--coral-d:#b02f24;--lemon-d:#7a5d00;
@@ -59,7 +59,8 @@ main{padding:34px clamp(18px,4vw,52px) 90px;max-width:1360px;width:100%;margin-i
 .btn:hover{border-color:var(--ink)}
 .btn.primary{background:var(--p);color:var(--pt);border-color:var(--p)}
 .btn.sky{background:var(--sky);border-color:var(--sky)}.btn.mint{background:var(--mint);border-color:var(--mint)}.btn.lilac{background:var(--lilac);border-color:var(--lilac)}
-.btn.link{border:0;background:none;text-decoration:underline;padding:10px 4px}
+.btn.link{border:0;background:none;text-decoration:underline;padding:14px 8px;min-height:44px}
+.vs{display:inline-flex;background:var(--soft);border-radius:12px;padding:3px;margin:0 0 14px}.vs a{display:grid;place-items:center;min-height:40px;padding:0 18px;border-radius:10px;font-weight:600;font-size:14px;color:var(--muted)}.vs a.on{background:#fff;color:var(--ink);border:1px solid var(--line)}
 .btn.danger{color:var(--coral-d)}
 .btn.sm{min-height:38px;padding:6px 14px;font-size:14px;border-radius:12px}
 .icon-btn{border:0;background:none;cursor:pointer;font-size:24px;line-height:1;padding:6px 10px;border-radius:10px;color:var(--muted)}
@@ -561,12 +562,14 @@ function vAccueil(){
 function listChantiers(){
   const q=ui.q.toLowerCase();
   const l=db.chantiers.filter(c=>!q||(c.name+' '+c.client+' '+c.address).toLowerCase().includes(q));
-  if(!l.length)return empty(q?'Aucun résultat':'Aucun '+W().one,'Un '+W().one+' regroupe vos '+W().lots+', devis et factures.',q?'':`<button class="btn primary" data-a="newChantier">+ ${Wc()}</button>`);
+  if(!l.length)return empty(q?'Aucun résultat':'Aucun '+W().one,'Un '+W().one+' regroupe vos '+W().lots+', devis et factures.','');
   return [['en cours','En cours'],['à venir','À venir'],['en pause','En pause'],['terminé','Terminés']].map(([k,t])=>{
     const g=l.filter(c=>c.status===k);return g.length?`<div class="sec"><h2>${t}<span class="count">${g.length}</span></h2></div><div class="cards">${g.map(chantierCard).join('')}</div>`:''}).join('');
 }
+const vSwitch=on=>`<div class="vs" role="tablist"><a href="#/chantiers" class="${on==='l'?'on':''}">Liste</a><a href="#/planning" class="${on==='p'?'on':''}">Planning</a></div>`;
 function vChantiers(){
-  return head(Wcs(),'',`<a class="btn" href="#/planning">Planning</a><button class="btn primary" data-a="newChantier">+ ${Wc()}</button>`)+
+  return head(Wcs(),'',`<button class="btn primary" data-a="newChantier">+ ${Wc()}</button>`)+
+  vSwitch('l')+
   (db.chantiers.length>4?`<input class="search" type="search" placeholder="Rechercher un ${W().one} ou un client" data-q="chantiers" value="${esc(ui.q)}">`:'')+
   `<div id="list">${listChantiers()}</div>`;
 }
@@ -600,7 +603,7 @@ const hiddenCanc=d=>d.type==='facture'&&(isCancelled(d)||(d.avoir&&d.status!=='b
 function listDocs(type){
   const q=ui.q.toLowerCase();
   const l=db.docs.filter(d=>d.type===type&&(type!=='facture'||ui.showCanc||!hiddenCanc(d))&&(!q||((d.clientName||'')+' '+d.number+' '+((ch(d.chantierId)||{}).name||'')).toLowerCase().includes(q))).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||b.number.localeCompare(a.number));
-  return l.length?`<div class="list">${l.map(d=>docRow(d)).join('')}</div>`:empty(q?'Aucun résultat':(type==='devis'?'Aucun devis':'Aucune facture'),type==='devis'?'Créez un devis, envoyez-le en PDF, puis transformez-le en facture.':'Créez une facture, ou transformez un devis accepté.',q?'':`<button class="btn primary" data-a="newDoc" data-type="${type}">+ ${type==='devis'?'Devis':'Facture'}</button>`);
+  return l.length?`<div class="list">${l.map(d=>docRow(d)).join('')}</div>`:empty(q?'Aucun résultat':(type==='devis'?'Aucun devis':'Aucune facture'),type==='devis'?'Créez un devis, envoyez-le en PDF, puis transformez-le en facture.':'Créez une facture, ou transformez un devis accepté.','');
 }
 function vDocs(type,r){
   if(r.id){const d=doc(r.id);if(d)return vDocEdit(d)}
@@ -706,11 +709,11 @@ function vPlanning(){
     rows+=`<div class="g"><div class="gl c"><a href="#/chantier/${c.id}">${esc(c.name)}</a></div>${track(bar(c.start,c.end,'var(--ink)','c',c.name))}</div>`;
     ls.forEach(l=>{rows+=`<div class="g"><div class="gl">${esc(l.trade)}</div>${track(bar(l.start,l.end,colorOf(l.trade),l.status==='terminé'?'done':'',l.trade+' · '+(l.company||'')))}</div>`});
   });
-  return `<a class="back" href="#/chantiers">← ${Wcs()}</a>`+head('Planning',`${fdate(ws)} → ${fdate(addDays(ws,days-1))}`,
+  return head('Planning',`${fdate(ws)} → ${fdate(addDays(ws,days-1))}`,
     `<select id="gsel" aria-label="Filtrer par ${W().one}" style="width:auto"><option value="">Tous les ${W().many}</option>${db.chantiers.map(c=>`<option value="${c.id}" ${ui.gc===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
-     <button class="btn" data-a="gprev" aria-label="Période précédente">←</button><button class="btn" data-a="gtoday">Aujourd'hui</button><button class="btn" data-a="gnext" aria-label="Période suivante">→</button>`)+
+     <button class="btn" data-a="gprev" aria-label="Période précédente">←</button><button class="btn" data-a="gtoday">Aujourd'hui</button><button class="btn" data-a="gnext" aria-label="Période suivante">→</button>`)+vSwitch('p')+
   (rows?`<div class="gantt"><div class="g"><div class="gl"></div><div class="gw">${weeks.map(w=>`<span>${fshort(w)}</span>`).join('')}</div></div>${rows}</div><p class="muted small">Le trait corail marque aujourd'hui. Les dates se règlent dans chaque ${W().lot}.</p>`
-   :empty('Rien à afficher','Ajoutez des dates à vos '+W().lots+' pour les voir ici.',`<a class="btn primary" href="#/chantiers">Voir les ${W().many}</a>`));
+   :empty('Rien à afficher','Ajoutez des dates à vos '+W().lots+' pour les voir ici.',''));
 }
 
 /* Réglages : liste des rubriques + détail (sur téléphone : on touche une rubrique, elle s'ouvre) */
@@ -823,7 +826,7 @@ const dueOf=c=>docsOfClient(c).filter(d=>d.type==='facture'&&d.status==='envoyé
 function listClients(){
   const q=ui.q.toLowerCase();
   const l=[...db.clients].filter(c=>!q||(c.name+' '+c.phone+' '+c.email+' '+c.address).toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
-  if(!l.length)return empty(q?'Aucun résultat':'Aucun client','Les clients s\'ajoutent tout seuls quand vous créez un devis ou une facture.',q?'':`<button class="btn primary" data-a="newClient">+ Client</button>`);
+  if(!l.length)return empty(q?'Aucun résultat':'Aucun client','Les clients s\'ajoutent tout seuls quand vous créez un devis ou une facture.','');
   return `<div class="list">${l.map(c=>{const due=dueOf(c);return `<a class="row" href="#/clients/${c.id}">${av(c.name,c.id)}<div class="main"><div class="t">${esc(c.name)}</div><div class="s">${esc([c.phone,c.email,c.type==='pro'?'Pro':''].filter(Boolean).join(' · ')||c.address||'Coordonnées à compléter')}</div></div>${due>0?`<div class="rside"><div class="amt">${eur(due)}</div><span class="pill warn">à encaisser</span></div>`:''}</a>`}).join('')}</div>`;
 }
 function vClients(){
@@ -863,16 +866,18 @@ $('#side').innerHTML=`<a class="logo" href="#/accueil" aria-label="AUNE, accueil
 $('#mtop').innerHTML=`<a class="logo" href="#/accueil" style="padding:0">${MARK}AUNE</a><a class="gear" href="#/reglages" aria-label="Réglages">${ico('cog')}</a>`;
 $('#bottom').innerHTML=nav.map(([k,l,i,c])=>`<a href="#/${k}" data-n="${k}" style="--c:var(--${c})"><span class="ib">${ico(i)}</span><span>${l}</span></a>`).join('');
 }
-function route(){const p=(location.hash.replace(/^#\/?/,'')||'accueil').split('/');return{name:p[0],id:p[1],tab:p[2]}}
+const ALIAS={projets:'chantiers',projet:'chantiers',dossiers:'chantiers',dossier:'chantiers',parametres:'reglages',reglage:'reglages',settings:'reglages',home:'accueil'};
+function route(){const p=(location.hash.replace(/^#\/?/,'')||'accueil').split('/');return{name:ALIAS[p[0]]||p[0],id:p[1],tab:p[2]}}
+const vNotFound=()=>empty('Page introuvable','Cette adresse n\'existe pas dans AUNE.','<a class="btn primary" href="#/accueil">Retour à l\'accueil</a>');
 let lastKey='';
 function render(){
   if(navVoc!==W().one)drawNav();
   const r=route();
-  const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),abonnement:vReglages,clients:()=>r.id?vClient(r):vClients(),reglages:vReglages};
+  const views={accueil:vAccueil,chantiers:vChantiers,chantier:()=>vChantier(r),planning:vPlanning,devis:()=>vDocs('devis',r),factures:()=>vDocs('facture',r),abonnement:vReglages,clients:()=>r.id?vClient(r):vClients(),reglages:vReglages,connexion:vAccueil};
   const key=(r.name==='reglages'||r.name==='abonnement')?'reglages/':r.name+'/'+(r.id||'');
   const entering=key!==lastKey;
   if(key!==lastKey){ui.q='';ui.opt=false}
-  $('#main').innerHTML=(views[r.name]||vAccueil)();
+  $('#main').innerHTML=(views[r.name]||vNotFound)();
   if(r.name==='factures'&&r.id&&isLocked(doc(r.id)))document.querySelectorAll('#main .editor input,#main .editor select,#main .editor textarea').forEach(el=>{if(!LOCK_OK.includes(el.dataset.b))el.disabled=true});
   const on={chantier:'chantiers',planning:'chantiers'}[r.name]||r.name;
   const sec={chantiers:'chantiers',chantier:'chantiers',planning:'chantiers',devis:'devis',factures:'factures',clients:'clients'}[r.name];
